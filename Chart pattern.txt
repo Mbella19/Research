@@ -1,0 +1,593 @@
+//@version=6
+indicator("All Chart Patterns — Detector", "Chart Patterns", overlay = true,
+     max_lines_count = 500, max_labels_count = 500)
+
+// ═══════════════════════════ Inputs ═══════════════════════════
+GRP_V = "Visibility"
+GRP_S = "Settings"
+GRP_P = "Patterns"
+GRP_T = "Style"
+
+visPatterns = input.string("Awaiting and Reached", "Patterns",
+     options = ["All", "Awaiting and Reached", "Only Awaiting", "Last Awaiting"], group = GRP_V,
+     tooltip = "Which completed patterns stay on the chart.\nAwaiting = neckline/trendline broken, price target not reached yet.\nReached = price target was hit.\nLast Awaiting = only the most recent awaiting pattern.")
+visTargets = input.string("All", "Price Targets",
+     options = ["All", "Only Awaiting", "Last Awaiting", "None"], group = GRP_V)
+
+showForming = input.bool(true, "Forming Patterns", group = GRP_S,
+     tooltip = "Show patterns before the breakout, drawn with dashed lines and a forming label.\nThese early candidates can still fail or update while price develops.")
+showFailed = input.bool(false, "Failed Patterns", group = GRP_S,
+     tooltip = "Show failed / expired patterns (greyed out, marked ✕).")
+pivLen = input.int(8, "Pivot Length", minval = 2, maxval = 100, group = GRP_S,
+     tooltip = "Left-side swing size used to build pattern pivots. Higher values detect bigger, cleaner patterns.")
+pivRight = input.int(2, "Pivot Confirmation Bars", minval = 0, maxval = 100, group = GRP_S,
+     tooltip = "Bars to wait after a swing before it can become a pattern pivot.\nLower values show forming patterns sooner. Use 0 for live previews, or set this equal to Pivot Length for the original slower confirmation behavior.")
+tolIn = input.float(25, "Equality Tolerance, %", minval = 5, maxval = 50, step = 5, group = GRP_S,
+     tooltip = "How close equal tops/bottoms (or a pivot and its trendline) must be, as a % of pattern height.")
+maxWidth = input.int(200, "Max Pattern Width, Bars", minval = 0, maxval = 1000, group = GRP_S,
+     tooltip = "Skip patterns wider than this many bars, so oversized structures don't cover the whole chart. 0 = no limit.")
+maxPat = input.int(20, "Max Patterns Kept", minval = 1, maxval = 40, group = GRP_S)
+
+useDT  = input.bool(true, "Double Top", group = GRP_P)
+useDB  = input.bool(true, "Double Bottom", group = GRP_P)
+useTT  = input.bool(true, "Triple Top", group = GRP_P)
+useTB  = input.bool(true, "Triple Bottom", group = GRP_P)
+useHS  = input.bool(true, "Head and Shoulders", group = GRP_P)
+useIHS = input.bool(true, "Inverted Head and Shoulders", group = GRP_P)
+useBF  = input.bool(true, "Bullish Flag", group = GRP_P)
+useSF  = input.bool(true, "Bearish Flag", group = GRP_P)
+useBP  = input.bool(true, "Bullish Pennant", group = GRP_P)
+useSP  = input.bool(true, "Bearish Pennant", group = GRP_P)
+useRW  = input.bool(true, "Rising Wedge", group = GRP_P)
+useFW  = input.bool(true, "Falling Wedge", group = GRP_P)
+useTRI = input.bool(true, "Triangle", group = GRP_P)
+useREC = input.bool(true, "Rectangle", group = GRP_P)
+
+bullCol   = input.color(#089981, "Bullish ", group = GRP_T, inline = "c1")
+bearCol   = input.color(#f23645, "Bearish ", group = GRP_T, inline = "c1")
+neutCol   = input.color(#787b86, "Neutral", group = GRP_T, inline = "c1")
+failCol   = input.color(#9598a1, "Failed", group = GRP_T, inline = "c2")
+lnWidth   = input.int(2, "Line Width", minval = 1, maxval = 4, group = GRP_T)
+lblSizeIn = input.string("Small", "Label Size", options = ["Tiny", "Small", "Normal", "Large"], group = GRP_T)
+showZZ    = input.bool(true, "Draw Pattern Outline", group = GRP_T)
+fillOn    = input.bool(true, "Fill Pattern Background", group = GRP_T)
+
+tol = tolIn / 100.0
+lblSize = lblSizeIn == "Tiny" ? size.tiny : lblSizeIn == "Small" ? size.small :
+     lblSizeIn == "Normal" ? size.normal : size.large
+
+// Pattern lifecycle status codes
+ST_FORMING = 0   // shape detected, waiting for breakout
+ST_AWAIT   = 1   // breakout happened, price target awaiting
+ST_REACHED = 2   // price target reached
+ST_FAILED  = 3   // invalidated or expired
+
+// ═══════════════════════════ Types & state ═══════════════════════════
+type Pattern
+    int          id
+    string       name
+    int          dir        // 1 = bullish breakout (expected/actual), -1 = bearish, 0 = unknown yet (triangle)
+    bool         twoLines   // true: lower (n*) + upper (m*) boundary lines; false: single neckline (n*)
+    array<int>   xs         // pattern pivots, oldest → newest
+    array<float> ys
+    int          nx1        // neckline / lower boundary
+    float        ny1
+    int          nx2
+    float        ny2
+    int          mx1        // upper boundary (twoLines only)
+    float        my1
+    int          mx2
+    float        my2
+    float        tgtSize    // measured move projected from the breakout
+    float        invLevel   // close beyond this against `dir` = pattern failed
+    int          expiryBar  // forming deadline (apex for converging patterns)
+    int          status     = 0
+    int          bkBar      // breakout bar / price
+    float        bkPrice
+    float        target
+    int          doneBar    // bar where reached / failed
+    bool         visible    = false
+    array<line>  lns
+    array<label> lbls
+    line         gN         // extendable boundary lines while forming
+    line         gM
+    linefill     lf
+
+var array<Pattern> pats = array.new<Pattern>()
+var array<float>   zzP  = array.new<float>()   // zigzag pivot prices
+var array<int>     zzB  = array.new<int>()     // zigzag pivot bars
+var array<int>     zzD  = array.new<int>()     // zigzag pivot dirs: 1 high, -1 low
+var array<int>     idSeq      = array.new<int>(1, 0)
+var array<int>     gLastAwait = array.new<int>(1, -1)
+
+// ═══════════════════════════ Low-level helpers ═══════════════════════════
+// y-value of the line through (x1,y1)-(x2,y2) at bar x (extrapolates)
+valAt(int x1, float y1, int x2, float y2, int x) =>
+    x2 == x1 ? y2 : y1 + (y2 - y1) * (x - x1) / (x2 - x1)
+
+method neckAt(Pattern p, int x) =>
+    valAt(p.nx1, p.ny1, p.nx2, p.ny2, x)
+
+method topAt(Pattern p, int x) =>
+    valAt(p.mx1, p.my1, p.mx2, p.my2, x)
+
+// zigzag accessors, newest-first: pP(0) = latest confirmed pivot
+zzN() =>
+    zzP.size()
+
+pP(int i) =>
+    zzP.get(zzP.size() - 1 - i)
+
+pB(int i) =>
+    zzB.get(zzB.size() - 1 - i)
+
+pD(int i) =>
+    zzD.get(zzD.size() - 1 - i)
+
+// bars / prices of the last k pivots, oldest → newest
+mkXs(int k) =>
+    array<int> a = array.new<int>()
+    for i = 0 to k - 1
+        a.push(pB(k - 1 - i))
+    a
+
+mkYs(int k) =>
+    array<float> a = array.new<float>()
+    for i = 0 to k - 1
+        a.push(pP(k - 1 - i))
+    a
+
+// ═══════════════════════════ Visibility & drawing ═══════════════════════════
+method wantVisible(Pattern p) =>
+    if p.status == ST_FORMING
+        showForming
+    else if p.status == ST_AWAIT
+        visPatterns != "Last Awaiting" or p.id == gLastAwait.first()
+    else if p.status == ST_REACHED
+        visPatterns == "All" or visPatterns == "Awaiting and Reached"
+    else
+        showFailed
+
+method tgtVisible(Pattern p) =>
+    if p.status < ST_AWAIT or na(p.target) or visTargets == "None"
+        false
+    else if visTargets == "All"
+        true
+    else if visTargets == "Only Awaiting"
+        p.status == ST_AWAIT
+    else
+        p.status == ST_AWAIT and p.id == gLastAwait.first()
+
+method erase(Pattern p) =>
+    for ln in p.lns
+        ln.delete()
+    p.lns.clear()
+    for lb in p.lbls
+        lb.delete()
+    p.lbls.clear()
+    if not na(p.lf)
+        linefill.delete(p.lf)
+        p.lf := linefill(na)
+    p.gN := line(na)
+    p.gM := line(na)
+    p.visible := false
+
+method draw(Pattern p) =>
+    p.erase()
+    bool  forming = p.status == ST_FORMING
+    color base    = p.status == ST_FAILED ? failCol : p.dir > 0 ? bullCol : p.dir < 0 ? bearCol : neutCol
+    color cLine   = forming ? color.new(base, 35) : base
+    lsty          = forming ? line.style_dashed : line.style_solid
+    int endX      = forming ? bar_index :
+         not na(p.bkBar) ? p.bkBar : not na(p.doneBar) ? p.doneBar : p.xs.last()
+    if endX < p.xs.last()
+        endX := p.xs.last()
+    // pattern outline (zigzag through the pivots)
+    if showZZ and p.xs.size() > 1
+        for i = 0 to p.xs.size() - 2
+            p.lns.push(line.new(p.xs.get(i), p.ys.get(i), p.xs.get(i + 1), p.ys.get(i + 1),
+                 color = cLine, width = math.max(1, lnWidth - 1), style = lsty))
+    // boundary lines (neckline, or lower+upper trendlines)
+    p.gN := line.new(p.nx1, p.ny1, endX, p.neckAt(endX), color = cLine, width = lnWidth, style = lsty)
+    p.lns.push(p.gN)
+    if p.twoLines
+        p.gM := line.new(p.mx1, p.my1, endX, p.topAt(endX), color = cLine, width = lnWidth, style = lsty)
+        p.lns.push(p.gM)
+        if fillOn
+            p.lf := linefill.new(p.gN, p.gM, color.new(base, 92))
+    // name label
+    int    cx  = math.round(math.avg(p.xs.first(), p.xs.last()))
+    bool   up  = p.dir <= 0
+    string sfx = p.status == ST_FORMING ? " forming" : p.status == ST_FAILED ? " ✕" : ""
+    p.lbls.push(label.new(cx, up ? p.ys.max() : p.ys.min(), p.name + sfx,
+         style = up ? label.style_label_down : label.style_label_up,
+         color = color.new(base, 100), textcolor = forming ? color.new(base, 25) : base, size = lblSize))
+    // price target
+    if p.tgtVisible()
+        int w  = p.xs.last() - p.xs.first()
+        int tx = p.status == ST_REACHED and not na(p.doneBar) ? p.doneBar :
+             p.bkBar + math.min(math.max(8, w / 3), 40)
+        p.lns.push(line.new(p.bkBar, p.bkPrice, tx, p.target, color = base, width = 1, style = line.style_dotted))
+        string ttxt = (p.status == ST_REACHED ? "✔ Target reached " :
+             p.status == ST_FAILED ? "✕ Failed " : "◌ Price target ") + str.tostring(p.target, format.mintick)
+        p.lbls.push(label.new(tx, p.target, ttxt, style = label.style_label_left,
+             color = color.new(base, 100), textcolor = base, size = lblSize))
+    p.visible := true
+
+// ═══════════════════════════ Lifecycle & construction ═══════════════════════════
+method setAwait(Pattern p, int dirBk) =>
+    p.dir    := dirBk
+    p.status := ST_AWAIT
+    p.bkBar  := bar_index
+    float lineP = dirBk > 0 ? (p.twoLines ? p.topAt(bar_index) : p.neckAt(bar_index)) : p.neckAt(bar_index)
+    p.bkPrice := lineP
+    p.target  := lineP + (dirBk > 0 ? p.tgtSize : -p.tgtSize)
+    if na(p.invLevel)
+        p.invLevel := dirBk > 0 ? p.ys.min() : p.ys.max()
+    alert(syminfo.ticker + " " + timeframe.period + ": " + p.name + " breakout " +
+         (dirBk > 0 ? "up" : "down") + ", target " + str.tostring(p.target, format.mintick),
+         alert.freq_once_per_bar_close)
+
+// zigzag builder: keeps pivots alternating, replaces same-direction extremes
+addPivot(int d, float price, int b) =>
+    bool changed = false
+    if zzD.size() == 0
+        zzP.push(price)
+        zzB.push(b)
+        zzD.push(d)
+        changed := true
+    else if zzD.last() == d
+        if (d > 0 and price > zzP.last()) or (d < 0 and price < zzP.last())
+            zzP.set(zzP.size() - 1, price)
+            zzB.set(zzB.size() - 1, b)
+            changed := true
+    else
+        zzP.push(price)
+        zzB.push(b)
+        zzD.push(d)
+        changed := true
+    if zzP.size() > 60
+        zzP.shift()
+        zzB.shift()
+        zzD.shift()
+    changed
+
+newPattern(string name, int dir, bool two, array<int> xs, array<float> ys,
+     int nx1, float ny1, int nx2, float ny2,
+     int mx1, float my1, int mx2, float my2,
+     float tgtSize, float invLev) =>
+    int w = xs.last() - xs.first()
+    // skip oversized structures so they don't cover the whole chart
+    if maxWidth == 0 or w <= maxWidth
+        Pattern p = Pattern.new()
+        p.id       := idSeq.first()
+        idSeq.set(0, p.id + 1)
+        p.name     := name
+        p.dir      := dir
+        p.twoLines := two
+        p.xs       := xs
+        p.ys       := ys
+        p.nx1      := nx1
+        p.ny1      := ny1
+        p.nx2      := nx2
+        p.ny2      := ny2
+        p.mx1      := mx1
+        p.my1      := my1
+        p.mx2      := mx2
+        p.my2      := my2
+        p.tgtSize  := tgtSize
+        p.invLevel := invLev
+        p.lns      := array.new<line>()
+        p.lbls     := array.new<label>()
+        p.expiryBar := xs.last() + math.max(20, 2 * w)
+        if two
+            // converging patterns must break out before the apex
+            float sU = (my2 - my1) / math.max(1, mx2 - mx1)
+            float sL = (ny2 - ny1) / math.max(1, nx2 - nx1)
+            if math.abs(sU - sL) > 1e-10
+                float apexX = ((ny1 - sL * nx1) - (my1 - sU * mx1)) / (sU - sL)
+                if not na(apexX) and apexX > xs.last()
+                    p.expiryBar := math.min(p.expiryBar, int(apexX))
+        // a new pattern supersedes overlapping still-forming ones (e.g. double top → triple top)
+        array<int> rm = array.new<int>()
+        if pats.size() > 0
+            for i = 0 to pats.size() - 1
+                Pattern q = pats.get(i)
+                if q.status == ST_FORMING and q.xs.last() >= xs.first()
+                    rm.push(i)
+        if rm.size() > 0
+            for j = 0 to rm.size() - 1
+                int idx = rm.get(rm.size() - 1 - j)
+                Pattern q = pats.get(idx)
+                q.erase()
+                pats.remove(idx)
+        pats.push(p)
+        while pats.size() > maxPat
+            Pattern old = pats.shift()
+            old.erase()
+        alert(syminfo.ticker + " " + timeframe.period + ": " + name + " forming", alert.freq_once_per_bar)
+        true
+
+// ═══════════════════════════ Pattern detection ═══════════════════════════
+// Runs once per new/updated zigzag pivot. Adds at most one pattern (priority order).
+detect() =>
+    bool added = false
+    int  n     = zzN()
+    if n >= 4
+        float p0 = pP(0)
+        float p1 = pP(1)
+        float p2 = pP(2)
+        float p3 = pP(3)
+        int   b0 = pB(0)
+        int   b1 = pB(1)
+        int   b2 = pB(2)
+        int   b3 = pB(3)
+        int   d0 = pD(0)
+        float p4 = n >= 5 ? pP(4) : na
+        int   b4 = n >= 5 ? pB(4) : na
+        float p5 = n >= 6 ? pP(5) : na
+
+        // ── Triple Top: three ~equal highs above the neckline (lowest in-between low)
+        if not added and useTT and d0 == 1 and n >= 6
+            float neckY = math.min(p3, p1)
+            float hi    = math.max(p0, math.max(p2, p4))
+            float lo    = math.min(p0, math.min(p2, p4))
+            float h     = hi - neckY
+            if h > 0 and hi - lo <= tol * h and lo > neckY and p5 < neckY
+                newPattern("Triple Top", -1, false, mkXs(5), mkYs(5),
+                     b4, neckY, b0, neckY, int(na), float(na), int(na), float(na), h, hi)
+                added := true
+
+        // ── Triple Bottom
+        if not added and useTB and d0 == -1 and n >= 6
+            float neckY = math.max(p3, p1)
+            float lo    = math.min(p0, math.min(p2, p4))
+            float hi    = math.max(p0, math.max(p2, p4))
+            float h     = neckY - lo
+            if h > 0 and hi - lo <= tol * h and hi < neckY and p5 > neckY
+                newPattern("Triple Bottom", 1, false, mkXs(5), mkYs(5),
+                     b4, neckY, b0, neckY, int(na), float(na), int(na), float(na), h, lo)
+                added := true
+
+        // ── Head and Shoulders: head above two ~equal shoulders, sloped neckline
+        if not added and useHS and d0 == 1 and n >= 6
+            float head    = p2
+            float ls      = p4
+            float rs      = p0
+            float neckMin = math.min(p3, p1)
+            float h       = head - neckMin
+            if h > 0 and head - math.max(ls, rs) > tol * h and math.abs(ls - rs) <= 1.5 * tol * h and
+                 math.min(ls, rs) > math.max(p3, p1) and math.abs(p3 - p1) <= 0.5 * h and p5 < neckMin
+                float tgt = head - valAt(b3, p3, b1, p1, b2)
+                newPattern("Head and Shoulders", -1, false, mkXs(5), mkYs(5),
+                     b3, p3, b1, p1, int(na), float(na), int(na), float(na), tgt, head)
+                added := true
+
+        // ── Inverted Head and Shoulders
+        if not added and useIHS and d0 == -1 and n >= 6
+            float head    = p2
+            float ls      = p4
+            float rs      = p0
+            float neckMax = math.max(p3, p1)
+            float h       = neckMax - head
+            if h > 0 and math.min(ls, rs) - head > tol * h and math.abs(ls - rs) <= 1.5 * tol * h and
+                 math.max(ls, rs) < math.min(p3, p1) and math.abs(p3 - p1) <= 0.5 * h and p5 > neckMax
+                float tgt = valAt(b3, p3, b1, p1, b2) - head
+                newPattern("Inv. Head and Shoulders", 1, false, mkXs(5), mkYs(5),
+                     b3, p3, b1, p1, int(na), float(na), int(na), float(na), tgt, head)
+                added := true
+
+        // ── Rectangle: price ranging between two ~equal horizontal levels
+        if not added and useREC and n >= 5
+            float hiMax = d0 == 1 ? math.max(p4, p2, p0) : math.max(p3, p1)
+            float hiMin = d0 == 1 ? math.min(p4, p2, p0) : math.min(p3, p1)
+            float loMax = d0 == 1 ? math.max(p3, p1) : math.max(p4, p2, p0)
+            float loMin = d0 == 1 ? math.min(p3, p1) : math.min(p4, p2, p0)
+            float top   = math.avg(hiMax, hiMin)
+            float bot   = math.avg(loMax, loMin)
+            float h     = top - bot
+            if h > 0 and hiMin > loMax and hiMax - hiMin <= tol * h and loMax - loMin <= tol * h
+                newPattern("Rectangle", 0, true, mkXs(5), mkYs(5),
+                     b4, bot, b0, bot, b4, top, b0, top, h, float(na))
+                added := true
+
+        // ── Double Top: two ~equal highs after an up leg
+        if not added and useDT and d0 == 1
+            float h = math.max(p2, p0) - p1
+            if h > 0 and math.abs(p0 - p2) <= tol * h and p3 < p1
+                newPattern("Double Top", -1, false, mkXs(3), mkYs(3),
+                     b2, p1, b0, p1, int(na), float(na), int(na), float(na), h, math.max(p2, p0))
+                added := true
+
+        // ── Double Bottom
+        if not added and useDB and d0 == -1
+            float h = p1 - math.min(p2, p0)
+            if h > 0 and math.abs(p0 - p2) <= tol * h and p3 > p1
+                newPattern("Double Bottom", 1, false, mkXs(3), mkYs(3),
+                     b2, p1, b0, p1, int(na), float(na), int(na), float(na), h, math.min(p2, p0))
+                added := true
+
+        // ── Bullish Flag: up pole, then a small parallel down-sloping channel
+        if not added and useBF and d0 == -1 and n >= 5
+            float pole = p3 - p4
+            float hC   = ((p3 - p2) + (p1 - p0)) / 2
+            int   wC   = b0 - b3
+            float sH   = (p1 - p3) / math.max(1, b1 - b3)
+            float sL   = (p0 - p2) / math.max(1, b0 - b2)
+            if pole > 0 and hC > 0 and pole >= 2.0 * hC and p1 < p3 and p0 < p2 and
+                 p3 - math.min(p0, p2) <= 0.6 * pole and
+                 math.abs(sH - sL) * wC <= 2 * tol * hC and b3 - b4 <= 2 * wC
+                newPattern("Bullish Flag", 1, true, mkXs(5), mkYs(5),
+                     b2, p2, b0, p0, b3, p3, b1, p1, pole, p4 + 0.3 * pole)
+                added := true
+
+        // ── Bearish Flag: down pole, then a small parallel up-sloping channel
+        if not added and useSF and d0 == 1 and n >= 5
+            float pole = p4 - p3
+            float hC   = ((p2 - p3) + (p0 - p1)) / 2
+            int   wC   = b0 - b3
+            float sH   = (p0 - p2) / math.max(1, b0 - b2)
+            float sL   = (p1 - p3) / math.max(1, b1 - b3)
+            if pole > 0 and hC > 0 and pole >= 2.0 * hC and p1 > p3 and p0 > p2 and
+                 math.max(p0, p2) - p3 <= 0.6 * pole and
+                 math.abs(sH - sL) * wC <= 2 * tol * hC and b3 - b4 <= 2 * wC
+                newPattern("Bearish Flag", -1, true, mkXs(5), mkYs(5),
+                     b3, p3, b1, p1, b2, p2, b0, p0, pole, p4 - 0.3 * pole)
+                added := true
+
+        // ── Bullish Pennant: up pole, then a small converging triangle
+        if not added and useBP and d0 == -1 and n >= 5
+            float pole = p3 - p4
+            float hC   = p3 - p2
+            if pole > 0 and hC > 0 and pole >= 2.0 * hC and p1 < p3 and p0 > p2 and
+                 b3 - b4 <= 2 * (b0 - b3)
+                newPattern("Bullish Pennant", 1, true, mkXs(5), mkYs(5),
+                     b2, p2, b0, p0, b3, p3, b1, p1, pole, p4 + 0.3 * pole)
+                added := true
+
+        // ── Bearish Pennant
+        if not added and useSP and d0 == 1 and n >= 5
+            float pole = p4 - p3
+            float hC   = p2 - p3
+            if pole > 0 and hC > 0 and pole >= 2.0 * hC and p1 > p3 and p0 < p2 and
+                 b3 - b4 <= 2 * (b0 - b3)
+                newPattern("Bearish Pennant", -1, true, mkXs(5), mkYs(5),
+                     b3, p3, b1, p1, b2, p2, b0, p0, pole, p4 - 0.3 * pole)
+                added := true
+
+        // ── Wedges & Triangle: 5 pivots between two converging trendlines
+        if not added and n >= 5 and (useRW or useFW or useTRI)
+            int   ux1 = d0 == 1 ? b4 : b3
+            float uy1 = d0 == 1 ? p4 : p3
+            int   ux2 = d0 == 1 ? b0 : b1
+            float uy2 = d0 == 1 ? p0 : p1
+            int   lx1 = d0 == 1 ? b3 : b4
+            float ly1 = d0 == 1 ? p3 : p4
+            int   lx2 = d0 == 1 ? b1 : b0
+            float ly2 = d0 == 1 ? p1 : p0
+            // the 3-pivot side's middle point must sit on its trendline
+            float fitErr = math.abs(p2 - valAt(b4, p4, b0, p0, b2))
+            float hS     = valAt(ux1, uy1, ux2, uy2, b4) - valAt(lx1, ly1, lx2, ly2, b4)
+            float hE     = valAt(ux1, uy1, ux2, uy2, b0) - valAt(lx1, ly1, lx2, ly2, b0)
+            int   w      = b0 - b4
+            if hS > 0 and hE > 0 and hE <= 0.85 * hS and fitErr <= tol * hS
+                float sUn = (uy2 - uy1) / math.max(1, ux2 - ux1) * w / hS
+                float sLn = (ly2 - ly1) / math.max(1, lx2 - lx1) * w / hS
+                array<int>   xsW = mkXs(5)
+                array<float> ysW = mkYs(5)
+                if useRW and sUn > 0.2 and sLn > 0.2
+                    newPattern("Rising Wedge", -1, true, xsW, ysW,
+                         lx1, ly1, lx2, ly2, ux1, uy1, ux2, uy2, hS, ysW.max())
+                    added := true
+                else if useFW and sUn < -0.2 and sLn < -0.2
+                    newPattern("Falling Wedge", 1, true, xsW, ysW,
+                         lx1, ly1, lx2, ly2, ux1, uy1, ux2, uy2, hS, ysW.min())
+                    added := true
+                else if useTRI and sUn <= 0.2 and sLn >= -0.2
+                    newPattern("Triangle", 0, true, xsW, ysW,
+                         lx1, ly1, lx2, ly2, ux1, uy1, ux2, uy2, hS, float(na))
+                    added := true
+    added
+
+// ═══════════════════════════ Main flow ═══════════════════════════
+bool livePreview = pivRight == 0
+int  pivRightSafe = math.max(1, pivRight)
+int  pivotBar = livePreview ? bar_index : bar_index - pivRight
+
+float phConfirmed = ta.pivothigh(high, pivLen, pivRightSafe)
+float plConfirmed = ta.pivotlow(low, pivLen, pivRightSafe)
+float phLive = ta.highestbars(high, pivLen + 1) == 0 ? high : na
+float plLive = ta.lowestbars(low, pivLen + 1) == 0 ? low : na
+float ph = livePreview ? phLive : phConfirmed
+float pl = livePreview ? plLive : plConfirmed
+
+bool zzEvent = false
+if not na(ph) and not na(pl)
+    // both confirmed on the same bar: keep alternation with the previous pivot
+    if zzD.size() > 0 and zzD.last() == 1
+        if addPivot(-1, pl, pivotBar)
+            zzEvent := true
+        if addPivot(1, ph, pivotBar)
+            zzEvent := true
+    else
+        if addPivot(1, ph, pivotBar)
+            zzEvent := true
+        if addPivot(-1, pl, pivotBar)
+            zzEvent := true
+else if not na(ph)
+    if addPivot(1, ph, pivotBar)
+        zzEvent := true
+else if not na(pl)
+    if addPivot(-1, pl, pivotBar)
+        zzEvent := true
+
+bool dirty   = false
+bool evNew   = false
+bool evBreak = false
+bool evHit   = false
+
+if zzEvent and detect()
+    dirty := true
+    evNew := true
+
+// status machine — evaluated on confirmed closes only (no intrabar flip-flop)
+if barstate.isconfirmed
+    for p in pats
+        if p.status == ST_FORMING
+            float upL = p.twoLines ? p.topAt(bar_index) : p.neckAt(bar_index)
+            float dnL = p.neckAt(bar_index)
+            bool failNow = not na(p.invLevel) and p.dir != 0 and
+                 (p.dir < 0 ? close > p.invLevel : close < p.invLevel)
+            bool brokeUp = not failNow and p.dir >= 0 and close > upL
+            bool brokeDn = not failNow and p.dir <= 0 and close < dnL
+            if brokeUp or brokeDn
+                p.setAwait(brokeUp ? 1 : -1)
+                evBreak := true
+                dirty   := true
+            else if failNow or bar_index > p.expiryBar
+                p.status  := ST_FAILED
+                p.doneBar := bar_index
+                dirty     := true
+        else if p.status == ST_AWAIT
+            bool hit = p.dir > 0 ? high >= p.target : low <= p.target
+            if hit
+                p.status  := ST_REACHED
+                p.doneBar := bar_index
+                evHit     := true
+                dirty     := true
+                alert(syminfo.ticker + " " + timeframe.period + ": " + p.name +
+                     " price target reached", alert.freq_once_per_bar_close)
+            else if not na(p.invLevel) and (p.dir > 0 ? close < p.invLevel : close > p.invLevel)
+                p.status  := ST_FAILED
+                p.doneBar := bar_index
+                dirty     := true
+
+// redraw on any event; recompute which awaiting pattern is the most recent
+if dirty
+    int bestId  = -1
+    int bestBar = -1
+    for p in pats
+        if p.status == ST_AWAIT and p.bkBar >= bestBar
+            bestBar := p.bkBar
+            bestId  := p.id
+    gLastAwait.set(0, bestId)
+    for p in pats
+        if p.wantVisible()
+            p.draw()
+        else if p.visible
+            p.erase()
+
+// keep boundary lines of forming patterns extended to the current bar
+for p in pats
+    if p.visible and p.status == ST_FORMING
+        if not na(p.gN)
+            p.gN.set_x2(bar_index)
+            p.gN.set_y2(p.neckAt(bar_index))
+        if p.twoLines and not na(p.gM)
+            p.gM.set_x2(bar_index)
+            p.gM.set_y2(p.topAt(bar_index))
+
+// ═══════════════════════════ Alerts ═══════════════════════════
+alertcondition(evNew,   "New pattern forming",  "A new chart pattern started forming")
+alertcondition(evBreak, "Pattern breakout",     "A chart pattern broke out (price target awaiting)")
+alertcondition(evHit,   "Price target reached", "A chart pattern price target was reached")

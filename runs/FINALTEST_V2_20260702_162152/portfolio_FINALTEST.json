@@ -1,0 +1,100 @@
+{
+  "tag": "FINALTEST",
+  "portfolio": {
+    "ann_ret_pct": 39.09244626021253,
+    "ann_vol_pct": 14.748675436634052,
+    "sharpe": 2.3117102191225647,
+    "max_dd_pct": -7.144761378865006,
+    "worst_year_pct": 15.946896730231263,
+    "years_pos": 1,
+    "years_n": 1,
+    "months_pos_pct": 83.33333333333334,
+    "worst_month_pct": -3.1430929693163967,
+    "yearly": {
+      "2026": 15.95
+    }
+  },
+  "s1": {
+    "ann_ret_pct": 27.05035457321392,
+    "ann_vol_pct": 12.278487551990345,
+    "sharpe": 2.0114031523837697,
+    "max_dd_pct": -5.306642936678019,
+    "worst_year_pct": 11.333049668714912,
+    "years_pos": 1,
+    "years_n": 1,
+    "months_pos_pct": 66.66666666666666,
+    "worst_month_pct": -3.118875202215099,
+    "yearly": {
+      "2026": 11.33
+    }
+  },
+  "s2": {
+    "ann_ret_pct": 9.580559791721456,
+    "ann_vol_pct": 7.05986609053999,
+    "sharpe": 1.3311407095105157,
+    "max_dd_pct": -2.3547926155232046,
+    "worst_year_pct": 4.187834750600405,
+    "years_pos": 1,
+    "years_n": 1,
+    "months_pos_pct": 66.66666666666666,
+    "worst_month_pct": -1.2963448019453039,
+    "yearly": {
+      "2026": 4.19
+    }
+  },
+  "bh": {
+    "ann_ret_pct": 38.223121643066406,
+    "ann_vol_pct": 19.7835884537579,
+    "sharpe": 1.7356683786457263,
+    "max_dd_pct": -12.371295928955078,
+    "worst_year_pct": 15.621387481689453,
+    "years_pos": 1,
+    "years_n": 1,
+    "months_pos_pct": 50.0,
+    "worst_month_pct": -4.778474807739258,
+    "yearly": {
+      "2026": 15.62
+    }
+  },
+  "sleeve_corr": 0.098,
+  "total_return_pct": 15.95,
+  "bh_total_return_pct": 15.62,
+  "s1_trades": 135,
+  "s2_trades": 62,
+  "s2_exposure_pct": 57.5,
+  "criteria": {
+    "sharpe": {
+      "pass": true,
+      "value": 2.31
+    },
+    "max_dd<=12": {
+      "pass": true,
+      "value": -7.1
+    },
+    "worst_year>=-5": {
+      "pass": true,
+      "value": 15.9
+    },
+    "years_pos": {
+      "pass": true,
+      "value": "1/1"
+    },
+    "months_pos>=65": {
+      "pass": true,
+      "value": 83.0
+    },
+    "worst_month>-6": {
+      "pass": true,
+      "value": -3.1
+    },
+    "beats_bh_return": {
+      "pass": true,
+      "value": "+15.9% vs +15.6%"
+    },
+    "dd<=half_bh": {
+      "pass": false,
+      "value": "-7.1% vs B&H -12.4%"
+    }
+  },
+  "criteria_passed": "7/8"
+}

@@ -1,0 +1,48 @@
+{
+  "version": 3,
+  "created": "2026-07-02T22:26:28",
+  "sleeves": {
+    "s2": {
+      "window": "usC",
+      "gate": "sma50",
+      "volcap": false,
+      "stop_atr": 5.0,
+      "derisk": true
+    },
+    "w2": 1.17,
+    "risk1": 0.005,
+    "vol_target": null,
+    "swap_bp_night": 0.0
+  },
+  "decision": {
+    "s1_artifact": "lgbm_final_v3",
+    "min_ev_atr": 0.1,
+    "drift_mu_daily": 0.000636,
+    "gate_cost_profile": "cfd_stressed",
+    "allowed_sides": "both",
+    "prob_floor": 0.4
+  },
+  "labels": {
+    "atr_period": 14,
+    "tp_atr": 3.0,
+    "sl_atr": 1.5,
+    "horizon_bars": 48,
+    "side": "both"
+  },
+  "s1_artifacts": {
+    "iso_long.pkl": "d50a3fee2cb6e141d86877e1b57d0bc969df0826cc9056bddd7a1a9ed79bed60",
+    "iso_short.pkl": "2cb6229b9991cbbd9db4c9474cdf3ebc771fd72b61e158ebc35a2cc1b3c14a10",
+    "long.txt": "a32edd0482720fe28099d4ea29b24e6697dcf8777b953f5cd48542d189a477cb",
+    "meta.json": "31615c866c1d81fea53953ce86b8af5f52e947225b9d01639650b1f3a8537cdd",
+    "oof_real.parquet": "bd619f916f8e1777438866c6f0440de7dadaaf3d7c98f8fb2f733cfd9f907987",
+    "qmap_long.npz": "44709fd0d82f8825a8353dfb7c4b441b849f07b9e7ad2a554ec86161d95a300e",
+    "qmap_short.npz": "7f2d24f42f6245966a9df7fa5b770b45efd4cd6521208869f303c8eb69199f1b",
+    "short.txt": "41a2144082b23399b87bb7bb8947a9178792f5a2acf78ddd8ccd996127938b48"
+  },
+  "s2_source_sha": "b427594f9c23edc9c0c38aed095ff658e44173c07928c357b2e7442d372784c5",
+  "lineage": {
+    "arena": "arena_v3_20260702_220058",
+    "search": "lgbm_search_20260702_213920",
+    "gate_decision": "D-028"
+  }
+}

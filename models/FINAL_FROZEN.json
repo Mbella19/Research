@@ -1,0 +1,156 @@
+{
+  "frozen_at": "2026-07-02T12:51:49.717238",
+  "champion": "gbt",
+  "champion_evidence": {
+    "gbt": {
+      "econ": {
+        "n_trades": 1005,
+        "net_ev_sum": 157.5326385498047,
+        "net_ev_mean": 0.15674889087677002,
+        "hit_rate": 0.4129353233830846
+      },
+      "per_trade_lb": 0.04212850704789162
+    },
+    "tcn": {
+      "econ": {
+        "n_trades": 1288,
+        "net_ev_sum": -386.1260070800781,
+        "net_ev_mean": -0.2997872829437256,
+        "hit_rate": 0.33229813664596275
+      },
+      "per_trade_lb": -0.39928287267684937
+    },
+    "blend": {
+      "econ": {
+        "n_trades": 0,
+        "net_ev_sum": 0.0,
+        "net_ev_mean": 0.0,
+        "hit_rate": 0.0
+      },
+      "per_trade_lb": -Infinity
+    }
+  },
+  "recipe": {
+    "cfg": {
+      "num_leaves": 31,
+      "max_depth": 5,
+      "min_child_samples": 3000,
+      "feature_fraction": 0.9,
+      "bagging_fraction": 0.8,
+      "lambda_l2": 20.0,
+      "learning_rate": 0.03
+    },
+    "w_synth": 0.0,
+    "gate": "passed",
+    "evidence": {
+      "real_only": {
+        "econ": {
+          "n_trades": 1220,
+          "net_ev_sum": 228.86990356445312,
+          "net_ev_mean": 0.18759828805923462,
+          "hit_rate": 0.42213114754098363
+        },
+        "auc_test_long": 0.5362142574740622,
+        "auc_test_short": 0.5316846219407964,
+        "blocks": [
+          92.82598876953125,
+          74.74897003173828,
+          0.0,
+          -1.5977730751037598,
+          3.259896755218506,
+          -0.21558105945587158,
+          63.87873077392578,
+          9.056312561035156,
+          -9.031904220581055,
+          -4.054740905761719
+        ],
+        "per_trade_ev_lb95": 0.08198721706867218
+      },
+      "w_0.25": {
+        "econ": {
+          "n_trades": 66,
+          "net_ev_sum": 2.868152141571045,
+          "net_ev_mean": 0.043456852436065674,
+          "hit_rate": 0.3787878787878788
+        },
+        "auc_test_long": 0.5361382101760217,
+        "auc_test_short": 0.533899050219959,
+        "blocks": [
+          -0.16879510879516602,
+          3.439286708831787,
+          2.2901501655578613,
+          0.0,
+          -2.1498305797576904,
+          -1.668444275856018,
+          2.720391035079956,
+          0.0,
+          -1.5946059226989746,
+          0.0
+        ]
+      },
+      "w_0.5": {
+        "econ": {
+          "n_trades": 37,
+          "net_ev_sum": -3.8623294830322266,
+          "net_ev_mean": -0.10438728332519531,
+          "hit_rate": 0.35135135135135137
+        },
+        "auc_test_long": 0.5350419312475496,
+        "auc_test_short": 0.5336558942836461,
+        "blocks": [
+          -13.909812927246094,
+          12.497339248657227,
+          0.5363450050354004,
+          -8.79194164276123,
+          3.3764333724975586,
+          -1.668444275856018,
+          2.8376779556274414,
+          0.0,
+          1.2600750923156738,
+          0.0
+        ]
+      },
+      "w_1.0": {
+        "econ": {
+          "n_trades": 34,
+          "net_ev_sum": -13.561359405517578,
+          "net_ev_mean": -0.3988635241985321,
+          "hit_rate": 0.29411764705882354
+        },
+        "auc_test_long": 0.533851495209408,
+        "auc_test_short": 0.5336915832994731,
+        "blocks": [
+          0.0,
+          0.0,
+          -8.332094192504883,
+          -7.524117469787598,
+          -0.21354150772094727,
+          -1.668444275856018,
+          0.0,
+          0.0,
+          4.176837921142578,
+          0.0
+        ]
+      }
+    }
+  },
+  "file_hashes": {
+    "champion.json": "557c5adbe42ab448cae23d60aa8d44e9b8eb70291cce59d91e44efc7d321f7af",
+    "dir_candidates.json": "fbbd3b852742916f143d0bbb7d463a8885bc2d1e4b3e32c6064f0bac3e035160",
+    "lgbm_barriers.json": "483f678adba29c55e01f8c75428d2e21d4b5a9f79df596ebdb7a1bc61bb82c9c",
+    "lgbm_candidates.json": "93cc759e387f31896e5d856826b58a4b4a47c7c65226a25573c186a4778cdd86",
+    "lgbm_final/iso_long.pkl": "4b0ccea3065a3165e4382ce68c910f4ab5ff37bdf79fa3263b383334b5aed629",
+    "lgbm_final/iso_short.pkl": "749fceda6bce5f44058ecfc5c35a5fda4af442f0e924702fe9d5ac09aecd0b23",
+    "lgbm_final/long.txt": "e5f3d4439aa87f54410e892ba26bbde82ce8843763769367ddbd8a2ef03339c7",
+    "lgbm_final/meta.json": "c3ccc3fdaadef2157b576dc8e7f31de28d6bcc7b63e52b8238f909776a8ab8d7",
+    "lgbm_final/oof_real.parquet": "f28fd2f11c904db876a7062f94d6c0d7f2f3fb531a4e0e5ed8a1aa93cca98f2b",
+    "lgbm_final/short.txt": "57bf64e2e980134cb398534d528a467ee617484ab2ca97aa0ce7b1cda0259145",
+    "lgbm_recipe.json": "ebea3775909bfc5d43399ecbee980c475b0323a57a1c840c1aa50a17c28476d0",
+    "stacker.json": "7de2d858669ffa3c922307f5bec373197d39e5e71e8fb113532fc93da4ffe31a",
+    "tcn_final/meta.json": "4a780d8fb85e8af9d74dee9020781bbaf0fd9ae55511a28e1a52408fd4ec84bf",
+    "tcn_final/seed1.pt": "08e9cd915a17a9b4381f8d6eb9b86fe41b72fd4b237e4903ec0ac169c7cbaeb4",
+    "tcn_final/seed2.pt": "11928f3ecffc066616fb4ca1317b1108afda852d1d28a1016be61174ede3e5fe",
+    "tcn_final/seed3.pt": "c3022905c89a4de70dfef012f15b232191454ab77c904d576e337926a62a568e",
+    "tcn_oof.parquet": "e386906f2b632c8773a172c4d76641c40344248b7ded797314d172c1e25c7ef6"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "n_trades": 0,
+  "total_return_pct": 0.0,
+  "cagr_pct": 0.0,
+  "max_dd_pct": 0.0,
+  "sharpe": 0.0,
+  "sortino": 0.0,
+  "calmar": 0.0,
+  "bh_total_return_pct": 18.368494033813477,
+  "bh_max_dd_pct": 7.999050617218018,
+  "bh_sharpe": 1.8566465477197924,
+  "bh_calmar": 4.063210964202881
+}

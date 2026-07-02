@@ -1,0 +1,359 @@
+//@version=6
+indicator('4H 30m 5m Market Structure', overlay = true, max_boxes_count = 500, max_labels_count = 300)
+
+// Each timeframe now has its own colour so you can tell the rectangles apart:
+//   4H zones  = BLUE
+//   30m zones = ORANGE
+//   5m zones  = PURPLE
+// Within each timeframe:
+//   Bearish (break-down) zone = richer fill + SOLID border
+//   Bullish (reclaim)   zone = lighter fill + DASHED border
+// Structure rules (same on every timeframe):
+// 1. A higher high creates a bear zone from the last bearish candle before that HH
+//    (that candle's close down to its lower wick). A close below it flips bearish.
+// 2. The last bullish candle before a bearish break becomes the bull reclaim zone
+//    (that candle's close up to its upper wick). A bullish close above it flips bullish.
+// 3. While bearish, each fresh lower low updates the bull zone.
+// Signals/alerts keep the original logic: 4H bearish -> 5m sell breaks of 30m bear zones;
+// 4H bullish -> 5m buy breaks of 30m bull zones. Designed to run on a 5-minute chart.
+
+trendTf = input.timeframe('240', 'Trend timeframe (4H)')
+setupTf = input.timeframe('30', 'Setup timeframe (30m)')
+entryTf = input.timeframe('5', 'Entry timeframe (5m)')
+hhLookbackBars = input.int(20, 'Higher-high lookback', minval = 2, tooltip = 'A candle high must exceed this many previous highs on the structure timeframe to count as a higher high.')
+llLookbackBars = input.int(20, 'Lower-low lookback', minval = 2, tooltip = 'A candle low must break this many previous lows on the structure timeframe to count as a lower low.')
+zoneSearchBars = input.int(30, 'Opposite candle search', minval = 1, tooltip = 'How many candles to scan back for the last bearish/bullish candle that defines the zone.')
+maxHistoricalZones = input.int(120, 'Historical zones kept', minval = 1, maxval = 280, tooltip = 'Active zones are always kept. This only caps how many old, closed zones stay on the chart.')
+show4hZones = input.bool(true, 'Show 4H zones (blue)')
+show30mZones = input.bool(true, 'Show 30m zones (orange)')
+show5mZones = input.bool(true, 'Show 5m zones (purple)')
+showLegend = input.bool(true, 'Show timeframe colour legend')
+showZoneTags = input.bool(true, 'Tag each zone with its timeframe (4H/30m/5m)')
+showStatusTable = input.bool(true, 'Show status table')
+showFlipLabels = input.bool(true, 'Show 4H CHoCH / BOS labels')
+shadeTrend = input.bool(false, 'Subtle trend background')
+
+// ---- Colours: one bold hue per timeframe (4H = blue, 30m = orange, 5m = purple) ----
+// Bear zones use the stronger fill + a solid border. Bull zones use a lighter fill + a dashed border.
+c_4h_bear_fill = color.new(color.rgb(37, 99, 235), 58)
+c_4h_bull_fill = color.new(color.rgb(59, 130, 246), 72)
+c_4h_border = color.new(color.rgb(96, 165, 250), 0)
+c_30m_bear_fill = color.new(color.rgb(234, 88, 12), 58)
+c_30m_bull_fill = color.new(color.rgb(249, 115, 22), 72)
+c_30m_border = color.new(color.rgb(251, 146, 60), 0)
+c_5m_bear_fill = color.new(color.rgb(147, 51, 234), 58)
+c_5m_bull_fill = color.new(color.rgb(168, 85, 247), 72)
+c_5m_border = color.new(color.rgb(192, 132, 252), 0)
+c_4h_swatch = color.new(color.rgb(59, 130, 246), 0)
+c_30m_swatch = color.new(color.rgb(249, 115, 22), 0)
+c_5m_swatch = color.new(color.rgb(147, 51, 234), 0)
+
+f_lastCandleZone(bool wantBullish) =>
+    float zoneTop = na
+    float zoneBottom = na
+    int zoneTime = na
+    bool found = false
+
+    for i = 1 to zoneSearchBars by 1
+        bool candleMatches = wantBullish ? close[i] > open[i] : close[i] < open[i]
+        if not found and candleMatches
+            zoneTop := wantBullish ? high[i] : close[i]
+            zoneBottom := wantBullish ? close[i] : low[i]
+            zoneTime := time[i]
+            found := true
+            found
+
+    [zoneTop, zoneBottom, zoneTime]
+
+f_marketStructure() =>
+    var int trend = 0
+    var float bearZoneTop = na
+    var float bearZoneBottom = na
+    var int bearZoneCandleTime = na
+    var float bullZoneTop = na
+    var float bullZoneBottom = na
+    var int bullZoneCandleTime = na
+
+    int newBearZoneEvent = na
+    int newBearZoneEventClose = na
+    int newBullZoneEvent = na
+    int newBullZoneEventClose = na
+    int bearishFlipEvent = na
+    int bearishFlipEventClose = na
+    int bullishFlipEvent = na
+    int bullishFlipEventClose = na
+
+    float previousHighs = ta.highest(high[1], hhLookbackBars)
+    float previousLows = ta.lowest(low[1], llLookbackBars)
+    bool madeHigherHigh = not na(previousHighs) and high > previousHighs
+    bool madeLowerLow = not na(previousLows) and low < previousLows
+    bool bearishFlip = trend == 1 and not na(bearZoneBottom) and close < bearZoneBottom
+    bool bullishFlip = trend == -1 and not na(bullZoneTop) and close > open and close > bullZoneTop
+
+    if bearishFlip
+        trend := -1
+        bearishFlipEvent := time
+        bearishFlipEventClose := time_close
+
+        [lastBullTop, lastBullBottom, lastBullTime] = f_lastCandleZone(true)
+        if not na(lastBullTop)
+            bullZoneTop := lastBullTop
+            bullZoneBottom := lastBullBottom
+            bullZoneCandleTime := lastBullTime
+            newBullZoneEvent := time
+            newBullZoneEventClose := time_close
+            newBullZoneEventClose
+
+    else if bullishFlip
+        trend := 1
+        bullishFlipEvent := time
+        bullishFlipEventClose := time_close
+
+        [lastBearTopAfterFlip, lastBearBottomAfterFlip, lastBearTimeAfterFlip] = f_lastCandleZone(false)
+        if not na(lastBearTopAfterFlip)
+            bearZoneTop := lastBearTopAfterFlip
+            bearZoneBottom := lastBearBottomAfterFlip
+            bearZoneCandleTime := lastBearTimeAfterFlip
+            newBearZoneEvent := time
+            newBearZoneEventClose := time_close
+            newBearZoneEventClose
+
+    else if trend >= 0 and madeHigherHigh
+        [lastBearTopOnHh, lastBearBottomOnHh, lastBearTimeOnHh] = f_lastCandleZone(false)
+        if not na(lastBearTopOnHh) and (na(bearZoneCandleTime) or lastBearTimeOnHh != bearZoneCandleTime)
+            trend := 1
+            bearZoneTop := lastBearTopOnHh
+            bearZoneBottom := lastBearBottomOnHh
+            bearZoneCandleTime := lastBearTimeOnHh
+            newBearZoneEvent := time
+            newBearZoneEventClose := time_close
+            newBearZoneEventClose
+
+    else if trend == -1 and madeLowerLow
+        [lastBullTopOnLl, lastBullBottomOnLl, lastBullTimeOnLl] = f_lastCandleZone(true)
+        if not na(lastBullTopOnLl) and (na(bullZoneCandleTime) or lastBullTimeOnLl != bullZoneCandleTime)
+            bullZoneTop := lastBullTopOnLl
+            bullZoneBottom := lastBullBottomOnLl
+            bullZoneCandleTime := lastBullTimeOnLl
+            newBullZoneEvent := time
+            newBullZoneEventClose := time_close
+            newBullZoneEventClose
+
+    [trend, bearZoneTop, bearZoneBottom, bearZoneCandleTime, bullZoneTop, bullZoneBottom, bullZoneCandleTime, newBearZoneEvent, newBearZoneEventClose, newBullZoneEvent, newBullZoneEventClose, bearishFlipEvent, bearishFlipEventClose, bullishFlipEvent, bullishFlipEventClose]
+
+[trend4h, bearTop4h, bearBottom4h, bearCandleTime4h, bullTop4h, bullBottom4h, bullCandleTime4h, newBearZoneEvent4h, newBearZoneEventClose4h, newBullZoneEvent4h, newBullZoneEventClose4h, bearishFlipEvent4h, bearishFlipEventClose4h, bullishFlipEvent4h, bullishFlipEventClose4h] = request.security(syminfo.tickerid, trendTf, f_marketStructure(), barmerge.gaps_off, barmerge.lookahead_off)
+
+[trend30m, bearTop30m, bearBottom30m, bearCandleTime30m, bullTop30m, bullBottom30m, bullCandleTime30m, newBearZoneEvent30m, newBearZoneEventClose30m, newBullZoneEvent30m, newBullZoneEventClose30m, bearishFlipEvent30m, bearishFlipEventClose30m, bullishFlipEvent30m, bullishFlipEventClose30m] = request.security(syminfo.tickerid, setupTf, f_marketStructure(), barmerge.gaps_off, barmerge.lookahead_off)
+
+[trend5m, bearTop5m, bearBottom5m, bearCandleTime5m, bullTop5m, bullBottom5m, bullCandleTime5m, newBearZoneEvent5m, newBearZoneEventClose5m, newBullZoneEvent5m, newBullZoneEventClose5m, bearishFlipEvent5m, bearishFlipEventClose5m, bullishFlipEvent5m, bullishFlipEventClose5m] = request.security(syminfo.tickerid, entryTf, f_marketStructure(), barmerge.gaps_off, barmerge.lookahead_off)
+
+[entryClose5m, entryTimeClose5m] = request.security(syminfo.tickerid, entryTf, [close, time_close], barmerge.gaps_off, barmerge.lookahead_off)
+
+var box activeBearZoneBox = na
+var box activeBullZoneBox = na
+var box activeBearSetupZoneBox = na
+var box activeBullSetupZoneBox = na
+var box activeBear5mZoneBox = na
+var box activeBull5mZoneBox = na
+var array<box> zoneBoxes = array.new_box()
+var int lastBearZoneEvent = na
+var int lastBullZoneEvent = na
+var int lastBearishFlipEvent = na
+var int lastBullishFlipEvent = na
+var int lastBearZoneEvent30m = na
+var int lastBullZoneEvent30m = na
+var int lastBearishFlipEvent30m = na
+var int lastBullishFlipEvent30m = na
+var int lastBearZoneEvent5m = na
+var int lastBullZoneEvent5m = na
+var int lastBearishFlipEvent5m = na
+var int lastBullishFlipEvent5m = na
+var int lastSellEntryZoneTime = na
+var int lastBuyEntryZoneTime = na
+
+f_trimBoxes() =>
+    while array.size(zoneBoxes) > maxHistoricalZones
+        box oldestBox = array.shift(zoneBoxes)
+        box.delete(oldestBox)
+
+// A box is only archived (and eligible for trimming) once it stops being active.
+// Active zones are held in their own variables and are never trimmed.
+f_stopBox(box zoneBox, int stopTime) =>
+    if not na(zoneBox)
+        box.set_extend(zoneBox, extend.none)
+        box.set_right(zoneBox, stopTime)
+        array.push(zoneBoxes, zoneBox)
+        f_trimBoxes()
+
+f_makeZoneBox(int leftTime, int rightTime, float topPrice, float bottomPrice, color fillColor, color borderColor, int borderWidth, string borderStyle, string tfLabel) =>
+    box newBox = na
+    if not na(leftTime) and not na(rightTime) and not na(topPrice) and not na(bottomPrice)
+        newBox := box.new(left = leftTime, top = topPrice, right = rightTime, bottom = bottomPrice, xloc = xloc.bar_time, extend = extend.right, bgcolor = fillColor, border_color = borderColor, border_width = borderWidth, border_style = borderStyle, text = tfLabel, text_size = size.tiny, text_halign = text.align_left, text_valign = text.align_top, text_color = borderColor)
+        newBox
+    newBox
+
+bool newBearZoneSignal = not na(newBearZoneEvent4h) and (na(lastBearZoneEvent) or newBearZoneEvent4h != lastBearZoneEvent)
+bool newBullZoneSignal = not na(newBullZoneEvent4h) and (na(lastBullZoneEvent) or newBullZoneEvent4h != lastBullZoneEvent)
+bool bearishFlipSignal = not na(bearishFlipEvent4h) and (na(lastBearishFlipEvent) or bearishFlipEvent4h != lastBearishFlipEvent)
+bool bullishFlipSignal = not na(bullishFlipEvent4h) and (na(lastBullishFlipEvent) or bullishFlipEvent4h != lastBullishFlipEvent)
+
+// ---- CHoCH vs BOS (4H) ----
+// A trend flip = Change of Character (CHoCH): the trend reversed.
+// A new zone created in the SAME trend direction (a fresh higher high while already bullish,
+// or a fresh lower low while already bearish) = Break of Structure (BOS): the trend continued.
+bool bearishChochSignal = bearishFlipSignal
+bool bullishChochSignal = bullishFlipSignal
+bool bullishBosSignal = newBearZoneSignal and na(bullishFlipEvent4h)
+bool bearishBosSignal = newBullZoneSignal and na(bearishFlipEvent4h)
+
+bool newBearZoneSignal30m = not na(newBearZoneEvent30m) and (na(lastBearZoneEvent30m) or newBearZoneEvent30m != lastBearZoneEvent30m)
+bool newBullZoneSignal30m = not na(newBullZoneEvent30m) and (na(lastBullZoneEvent30m) or newBullZoneEvent30m != lastBullZoneEvent30m)
+bool bearishFlipSignal30m = not na(bearishFlipEvent30m) and (na(lastBearishFlipEvent30m) or bearishFlipEvent30m != lastBearishFlipEvent30m)
+bool bullishFlipSignal30m = not na(bullishFlipEvent30m) and (na(lastBullishFlipEvent30m) or bullishFlipEvent30m != lastBullishFlipEvent30m)
+
+bool newBearZoneSignal5m = not na(newBearZoneEvent5m) and (na(lastBearZoneEvent5m) or newBearZoneEvent5m != lastBearZoneEvent5m)
+bool newBullZoneSignal5m = not na(newBullZoneEvent5m) and (na(lastBullZoneEvent5m) or newBullZoneEvent5m != lastBullZoneEvent5m)
+bool bearishFlipSignal5m = not na(bearishFlipEvent5m) and (na(lastBearishFlipEvent5m) or bearishFlipEvent5m != lastBearishFlipEvent5m)
+bool bullishFlipSignal5m = not na(bullishFlipEvent5m) and (na(lastBullishFlipEvent5m) or bullishFlipEvent5m != lastBullishFlipEvent5m)
+
+bool sellSetupReady = trend4h == -1 and not na(bearBottom30m) and (trend30m == 1 or bearishFlipSignal30m)
+bool buySetupReady = trend4h == 1 and not na(bullTop30m) and (trend30m == -1 or bullishFlipSignal30m)
+bool sellBreak5m = sellSetupReady and entryClose5m < bearBottom30m and entryClose5m[1] >= bearBottom30m[1]
+bool buyBreak5m = buySetupReady and entryClose5m > bullTop30m and entryClose5m[1] <= bullTop30m[1]
+bool sellEntrySignal = sellBreak5m and not na(bearCandleTime30m) and (na(lastSellEntryZoneTime) or bearCandleTime30m != lastSellEntryZoneTime)
+bool buyEntrySignal = buyBreak5m and not na(bullCandleTime30m) and (na(lastBuyEntryZoneTime) or bullCandleTime30m != lastBuyEntryZoneTime)
+
+if bearishFlipSignal
+    f_stopBox(activeBearZoneBox, bearishFlipEventClose4h)
+    activeBearZoneBox := na
+    lastBearishFlipEvent := bearishFlipEvent4h
+    if showFlipLabels
+        label.new(x = bearishFlipEventClose4h, y = bearBottom4h, xloc = xloc.bar_time, text = 'CHoCH', style = label.style_label_down, color = color.new(color.red, 0), textcolor = color.white, size = size.small)
+
+if bullishFlipSignal
+    f_stopBox(activeBullZoneBox, bullishFlipEventClose4h)
+    activeBullZoneBox := na
+    lastBullishFlipEvent := bullishFlipEvent4h
+    if showFlipLabels
+        label.new(x = bullishFlipEventClose4h, y = bullTop4h, xloc = xloc.bar_time, text = 'CHoCH', style = label.style_label_up, color = color.new(color.lime, 0), textcolor = color.black, size = size.small)
+
+if bullishBosSignal and showFlipLabels
+    label.new(x = newBearZoneEventClose4h, y = bearTop4h, xloc = xloc.bar_time, text = 'BOS', style = label.style_label_up, color = color.new(color.rgb(21, 128, 61), 12), textcolor = color.white, size = size.tiny)
+
+if bearishBosSignal and showFlipLabels
+    label.new(x = newBullZoneEventClose4h, y = bullBottom4h, xloc = xloc.bar_time, text = 'BOS', style = label.style_label_down, color = color.new(color.rgb(153, 27, 27), 12), textcolor = color.white, size = size.tiny)
+
+if bearishFlipSignal30m
+    f_stopBox(activeBearSetupZoneBox, bearishFlipEventClose30m)
+    activeBearSetupZoneBox := na
+    lastBearishFlipEvent30m := bearishFlipEvent30m
+    lastBearishFlipEvent30m
+
+if bullishFlipSignal30m
+    f_stopBox(activeBullSetupZoneBox, bullishFlipEventClose30m)
+    activeBullSetupZoneBox := na
+    lastBullishFlipEvent30m := bullishFlipEvent30m
+    lastBullishFlipEvent30m
+
+if bearishFlipSignal5m
+    f_stopBox(activeBear5mZoneBox, bearishFlipEventClose5m)
+    activeBear5mZoneBox := na
+    lastBearishFlipEvent5m := bearishFlipEvent5m
+    lastBearishFlipEvent5m
+
+if bullishFlipSignal5m
+    f_stopBox(activeBull5mZoneBox, bullishFlipEventClose5m)
+    activeBull5mZoneBox := na
+    lastBullishFlipEvent5m := bullishFlipEvent5m
+    lastBullishFlipEvent5m
+
+if newBullZoneSignal
+    f_stopBox(activeBullZoneBox, newBullZoneEventClose4h)
+    if show4hZones
+        activeBullZoneBox := f_makeZoneBox(bullCandleTime4h, newBullZoneEventClose4h, bullTop4h, bullBottom4h, c_4h_bull_fill, c_4h_border, 2, line.style_dashed, showZoneTags ? '4H' : '')
+        activeBullZoneBox
+    lastBullZoneEvent := newBullZoneEvent4h
+    lastBullZoneEvent
+
+if newBearZoneSignal
+    f_stopBox(activeBearZoneBox, newBearZoneEventClose4h)
+    if show4hZones
+        activeBearZoneBox := f_makeZoneBox(bearCandleTime4h, newBearZoneEventClose4h, bearTop4h, bearBottom4h, c_4h_bear_fill, c_4h_border, 2, line.style_solid, showZoneTags ? '4H' : '')
+        activeBearZoneBox
+    lastBearZoneEvent := newBearZoneEvent4h
+    lastBearZoneEvent
+
+if newBullZoneSignal30m
+    f_stopBox(activeBullSetupZoneBox, newBullZoneEventClose30m)
+    if show30mZones
+        activeBullSetupZoneBox := f_makeZoneBox(bullCandleTime30m, newBullZoneEventClose30m, bullTop30m, bullBottom30m, c_30m_bull_fill, c_30m_border, 1, line.style_dashed, showZoneTags ? '30m' : '')
+        activeBullSetupZoneBox
+    lastBullZoneEvent30m := newBullZoneEvent30m
+    lastBullZoneEvent30m
+
+if newBearZoneSignal30m
+    f_stopBox(activeBearSetupZoneBox, newBearZoneEventClose30m)
+    if show30mZones
+        activeBearSetupZoneBox := f_makeZoneBox(bearCandleTime30m, newBearZoneEventClose30m, bearTop30m, bearBottom30m, c_30m_bear_fill, c_30m_border, 1, line.style_solid, showZoneTags ? '30m' : '')
+        activeBearSetupZoneBox
+    lastBearZoneEvent30m := newBearZoneEvent30m
+    lastBearZoneEvent30m
+
+if newBullZoneSignal5m
+    f_stopBox(activeBull5mZoneBox, newBullZoneEventClose5m)
+    if show5mZones
+        activeBull5mZoneBox := f_makeZoneBox(bullCandleTime5m, newBullZoneEventClose5m, bullTop5m, bullBottom5m, c_5m_bull_fill, c_5m_border, 1, line.style_dashed, showZoneTags ? '5m' : '')
+        activeBull5mZoneBox
+    lastBullZoneEvent5m := newBullZoneEvent5m
+    lastBullZoneEvent5m
+
+if newBearZoneSignal5m
+    f_stopBox(activeBear5mZoneBox, newBearZoneEventClose5m)
+    if show5mZones
+        activeBear5mZoneBox := f_makeZoneBox(bearCandleTime5m, newBearZoneEventClose5m, bearTop5m, bearBottom5m, c_5m_bear_fill, c_5m_border, 1, line.style_solid, showZoneTags ? '5m' : '')
+        activeBear5mZoneBox
+    lastBearZoneEvent5m := newBearZoneEvent5m
+    lastBearZoneEvent5m
+
+if sellEntrySignal
+    lastSellEntryZoneTime := bearCandleTime30m
+    lastSellEntryZoneTime
+
+if buyEntrySignal
+    lastBuyEntryZoneTime := bullCandleTime30m
+    lastBuyEntryZoneTime
+
+bgcolor(shadeTrend ? trend4h == 1 ? color.new(color.green, 94) : trend4h == -1 ? color.new(color.red, 94) : na : na)
+
+plot(float(trend4h), title = '4H Trend State', display = display.none)
+plot(float(trend30m), title = '30m Trend State', display = display.none)
+plot(float(trend5m), title = '5m Trend State', display = display.none)
+
+alertcondition(bearishChochSignal, title = '4H bearish CHoCH', message = '4H CHoCH: structure changed bearish (closed below the blue zone).')
+alertcondition(bullishChochSignal, title = '4H bullish CHoCH', message = '4H CHoCH: structure changed bullish (closed above the gray zone).')
+alertcondition(bullishBosSignal, title = '4H bullish BOS', message = '4H BOS: bullish trend continued with a fresh higher high.')
+alertcondition(bearishBosSignal, title = '4H bearish BOS', message = '4H BOS: bearish trend continued with a fresh lower low.')
+alertcondition(sellEntrySignal, title = '5m sell entry', message = '4H is bearish and a 5m candle closed below the active 30m blue zone.')
+alertcondition(buyEntrySignal, title = '5m buy entry', message = '4H is bullish and a 5m candle closed above the active 30m gray zone.')
+
+var table statusTable = table.new(position.top_right, 1, 4)
+if showStatusTable and barstate.islast
+    string trendText = trend4h == 1 ? '4H Trend: Bullish' : trend4h == -1 ? '4H Trend: Bearish' : '4H Trend: Waiting'
+    color trendColor = trend4h == 1 ? color.new(color.green, 20) : trend4h == -1 ? color.new(color.red, 20) : color.new(color.gray, 35)
+    string zoneText = trend4h == 1 ? 'Watching blue break' : trend4h == -1 ? 'Watching gray reclaim' : 'Waiting for HH'
+    string trend30mText = trend30m == 1 ? '30m Cycle: Bullish' : trend30m == -1 ? '30m Cycle: Bearish' : '30m Cycle: Waiting'
+    string entryText = trend4h == -1 ? 'Signals: Sells only' : trend4h == 1 ? 'Signals: Buys only' : 'Signals: Waiting'
+    table.cell(statusTable, 0, 0, trendText, bgcolor = trendColor, text_color = color.white, text_size = size.small)
+    table.cell(statusTable, 0, 1, zoneText, bgcolor = color.new(color.black, 10), text_color = color.white, text_size = size.small)
+    table.cell(statusTable, 0, 2, trend30mText, bgcolor = color.new(color.black, 10), text_color = color.white, text_size = size.small)
+    table.cell(statusTable, 0, 3, entryText, bgcolor = color.new(color.black, 10), text_color = color.white, text_size = size.small)
+else if not showStatusTable and barstate.islast
+    table.clear(statusTable, 0, 0, 0, 3)
+
+var table legendTable = table.new(position.bottom_right, 1, 3)
+if showLegend and barstate.islast
+    table.cell(legendTable, 0, 0, '4H zones', bgcolor = c_4h_swatch, text_color = color.white, text_size = size.small)
+    table.cell(legendTable, 0, 1, '30m zones', bgcolor = c_30m_swatch, text_color = color.black, text_size = size.small)
+    table.cell(legendTable, 0, 2, '5m zones', bgcolor = c_5m_swatch, text_color = color.white, text_size = size.small)
+else if not showLegend and barstate.islast
+    table.clear(legendTable, 0, 0, 0, 2)

@@ -1,0 +1,56 @@
+{
+  "winner": {
+    "window": "usC",
+    "gate": "sma50",
+    "volcap": false,
+    "stop_atr": null
+  },
+  "winner_metrics": {
+    "ann_ret_pct": 8.664440296069142,
+    "ann_vol_pct": 8.943135351608364,
+    "sharpe": 0.9739237189490559,
+    "max_dd_pct": -15.398331679349564,
+    "worst_year_pct": -3.9239951163371423,
+    "years_pos": 5,
+    "years_n": 6,
+    "months_pos_pct": 56.92307692307692,
+    "worst_month_pct": -3.8468366221449557,
+    "yearly": {
+      "2020": 32.24,
+      "2021": 1.14,
+      "2022": -3.92,
+      "2023": 2.27,
+      "2024": 19.3,
+      "2025": 1.16
+    },
+    "tag": "usC|sma50|novc|nostop",
+    "n_trades": 878,
+    "exposure_pct": 65.8,
+    "stop_exits": 0
+  },
+  "grid_sharpe_median": 0.5483485512344175,
+  "grid_sharpe_iqr": [
+    0.40433845316969375,
+    0.734408596694626
+  ],
+  "eligible_n": 4,
+  "nogate_baseline": {
+    "ann_ret_pct": 5.106790064920896,
+    "ann_vol_pct": 15.545251378005794,
+    "sharpe": 0.3985255327928546,
+    "max_dd_pct": -29.72987815009659,
+    "worst_year_pct": -24.015893200869588,
+    "years_pos": 4,
+    "years_n": 6,
+    "months_pos_pct": 56.92307692307692,
+    "worst_month_pct": -13.181816735863805,
+    "yearly": {
+      "2020": 22.26,
+      "2021": 9.5,
+      "2022": -24.02,
+      "2023": 7.23,
+      "2024": 28.81,
+      "2025": -6.15
+    }
+  }
+}

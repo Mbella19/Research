@@ -1,0 +1,76 @@
+{
+  "cost_curve": [
+    {
+      "cost_mult": 1.0,
+      "sharpe": 2.12,
+      "ann_ret_pct": 32.91
+    },
+    {
+      "cost_mult": 1.25,
+      "sharpe": 2.11,
+      "ann_ret_pct": 32.81
+    },
+    {
+      "cost_mult": 1.5,
+      "sharpe": 2.01,
+      "ann_ret_pct": 30.58
+    },
+    {
+      "cost_mult": 1.75,
+      "sharpe": 1.93,
+      "ann_ret_pct": 29.31
+    },
+    {
+      "cost_mult": 2.0,
+      "sharpe": 1.77,
+      "ann_ret_pct": 26.03
+    }
+  ],
+  "stress_1p5x_2xslip": {
+    "sharpe": 1.56,
+    "ann_ret_pct": 22.69
+  },
+  "s2_cfd_swap_2p5bp": {
+    "sharpe": 2.11,
+    "ann_ret_pct": 17.91
+  },
+  "gate_perturbation": {
+    "sma40": {
+      "sharpe": 3.59,
+      "ann_ret_pct": 31.93,
+      "n": 128
+    },
+    "sma50": {
+      "sharpe": 3.04,
+      "ann_ret_pct": 27.3,
+      "n": 132
+    },
+    "sma60": {
+      "sharpe": 3.14,
+      "ann_ret_pct": 28.42,
+      "n": 136
+    }
+  },
+  "synth_screen": {
+    "synth_u1": {
+      "sharpe": -0.25,
+      "ann_ret_pct": -3.08
+    },
+    "synth_u2": {
+      "sharpe": 1.11,
+      "ann_ret_pct": 10.97
+    },
+    "synth_u3": {
+      "sharpe": 0.4,
+      "ann_ret_pct": 3.25
+    },
+    "synth_u4": {
+      "sharpe": 0.77,
+      "ann_ret_pct": 7.67
+    },
+    "synth_u5": {
+      "sharpe": 0.7,
+      "ann_ret_pct": 6.53
+    }
+  }
+}

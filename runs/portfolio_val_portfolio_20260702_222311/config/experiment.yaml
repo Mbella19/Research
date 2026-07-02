@@ -1,0 +1,102 @@
+# ── Experiment knobs (research protocol lives in the plan + notes/decisions.md) ──
+seed: 42
+run_tag: dev
+
+timeframes:
+  decision_minutes: 5
+  context_minutes: [30, 240]
+
+features:
+  groups: [base, time, ms, zz, daily, cal, tape]   # v3: +daily/cal/tape (D-026 B1)
+
+labels:
+  atr_period: 14                    # ATR on the decision timeframe
+  tp_atr: 3.0                       # trend-runner geometry — won the training-side
+  sl_atr: 1.5                       # barrier sweep (see runs/lgbm_barriers_*)
+  horizon_bars: 48                  # 48 × 5m = 4h
+  side: both                        # independent long / short binary labels
+
+weights:
+  uniqueness: true                  # overlap-adjusted label uniqueness
+  synth_weight: 0.5                 # candidate; admitted only via protocol gates
+  recency_half_life_days: 0         # 0 = off
+
+cv:
+  scheme: purged_walk_forward
+  n_folds: 5
+  embargo_days: 1
+
+lgbm:
+  n_search: 20
+  early_stop_tail_days: 30          # embargoed tail of the train fold, never validation
+  base_params:
+    objective: binary
+    learning_rate: 0.04
+    num_leaves: 31
+    max_depth: 7
+    min_child_samples: 1000
+    feature_fraction: 0.8
+    bagging_fraction: 0.8
+    bagging_freq: 1
+    lambda_l2: 5.0
+    verbose: -1
+
+tcn:
+  seq_len: 64
+  hidden: 64
+  blocks: 5
+  dropout: 0.2
+  weight_decay: 0.01
+  lr: 0.001
+  batch_size: 1024
+  max_epochs: 14
+  patience: 4
+  windows_per_epoch: 150000   # per-epoch random window subsample (compute cap)
+  seeds: [1, 2, 3]            # final deep ensemble
+  cv_seeds: [1, 2]            # CV compute budget
+  folds: 3
+
+cost_profile: futures_proxy_stressed   # active instrument cost basis (D-009)
+
+decision:
+  s1_artifact: lgbm_final_v3        # v3 champion (arena D-027: Sharpe 0.77 vs v1 0.59)
+  min_ev_atr: 0.10                  # D-028 portfolio-level pick: worst-year −1.3%
+                                    # beats −5.2% (rule: consistency over raw Sharpe);
+                                    # v1/v2 used 0.20 (frozen JSONs snapshot their configs)
+  drift_mu_daily: 0.000636          # ln-return/day measured on TRAINING 2020→2025-05 (D-020)
+  gate_cost_profile: cfd_stressed   # gate stricter than execution: the per-row
+                                    # spread/ATR term doubles as a liquidity filter
+  allowed_sides: both               # D-017 (user): symmetric policy, no direction bias;
+                                    # gate depth must keep BOTH sides OOF-nonnegative
+  prob_floor: 0.40                  # loose safety; the EV gate is the real filter
+
+sleeves:                              # v2 two-sleeve portfolio (D-021/D-022) + v3 risk pkg (D-026)
+  s2:                                 # grid winner (runs/sleeve2_grid_20260702_160652)
+    window: usC                       # 23:00 -> next-day 16:30 hold
+    gate: sma50                       # lagged daily close > SMA50 (info <= D-1)
+    volcap: false                     # refuted on training (grid)
+    stop_atr: 5.0                     # D-026 P3: CATASTROPHE stop (0 fires in training;
+                                      # tight 2.5x stop remains refuted)
+    derisk: true                      # D-026 P4: one-sided vol de-lever (never levers up)
+  w2: 1.04                            # vol-parity budget: vol(S1')/vol(S2') on TRAINING
+                                      # (re-derived for v3 champion + risk pkg, D-027)
+  risk1: 0.005                        # S1 per-trade risk (frozen v1 policy)
+  vol_target: null                    # REFUTED on training OOF (Sharpe 1.09->0.87,
+                                      # DD worse) -> layer dropped, D-022
+  swap_bp_night: 0.0                  # futures execution; robustness stresses 2.5
+
+backtest:
+  spread_stress_mult: 1.25          # user-mandated higher-than-normal costs
+  slippage_stress_mult: 1.0
+  equity0: 10000.0
+  risk_per_trade: 0.005
+  leverage_cap: 20.0
+  max_trades_per_day: 6
+  daily_stop_R: -3.0
+  max_concurrent: 1                 # D-016: conc-3 refuted on validation (clustered adds lose)
+
+robustness:
+  spread_stress_mult: 1.5
+  slippage_stress_mult: 2.0
+  cost_curve: [1.0, 1.25, 1.5, 1.75, 2.0]
+  threshold_perturb_pct: 20

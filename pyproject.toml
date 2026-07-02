@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "daytrader"
+version = "0.1.0"
+description = "Instrument-agnostic intraday ML trading research stack (NAS100 first)"
+requires-python = ">=3.11"
+
+[project.scripts]
+daytrader = "daytrader.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

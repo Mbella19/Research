@@ -1,0 +1,48 @@
+# ── Instrument definition ─────────────────────────────────────────────
+# To retrain on another instrument: copy the project, swap the CSVs,
+# and edit THIS file (plus experiment.yaml knobs if desired). Nothing else.
+symbol: NAS100
+
+# One MT5 "point" (the unit of the SPREAD column) in price units.
+point_size: 0.1
+digits: 1
+
+# Account-currency value of a 1.0 price-unit move per 1.0 lot.
+value_per_price_unit_per_lot: 1.0
+min_lot: 0.01
+lot_step: 0.01
+max_lot: 50.0
+
+session:
+  weekdays: [0, 1, 2, 3, 4]   # Monday=0 .. Friday=4 (broker time)
+  day_start: "01:00"          # first 1m bar of the trading day
+  day_end: "23:59"            # last minute before the maintenance gap
+  no_entry_after: "22:45"     # new entries blocked after this time
+  force_flat_at: "23:30"      # open positions are closed at this bar
+
+data:
+  format: mt5_tsv             # <DATE> <TIME> <OPEN> <HIGH> <LOW> <CLOSE> <TICKVOL> <VOL> <SPREAD>
+  base_timeframe_minutes: 1
+  real:
+    training: "NAS100 DATA/NAS100 TRAINING.csv"
+    validation: "NAS100 DATA/NAS100 VALIDATION.csv"
+    locked_oos: "NAS100 DATA/NAS100 LOCKED OOS.csv"   # SINGLE-SHOT: only `daytrader oos` may consume this
+  synthetic:
+    glob: "SYNTHETIC DATA/*.csv"
+
+# Cost profiles (experiment.yaml `cost_profile` selects the active one).
+# Each is already STRESSED above its vehicle's realistic level; the
+# robustness battery multiplies further on top.
+cost_profiles:
+  cfd_stressed:                       # retail CFD ≈ 2× realistic (~3.6 pts RT)
+    spread_source: column
+    spread_mult: 1.25
+    spread_floor_points: 10.0
+    commission_per_lot_per_side: 0.5
+    slippage_points: 5.0
+  futures_proxy_stressed:             # CME micro (MNQ-like) ≈ 2× realistic (~1.8 pts RT)
+    spread_source: column
+    spread_mult: 0.35                 # futures book is far tighter than CFD feed
+    spread_floor_points: 4.0
+    commission_per_lot_per_side: 0.3
+    slippage_points: 3.0

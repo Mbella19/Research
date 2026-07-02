@@ -1,0 +1,79 @@
+# ── Experiment knobs (research protocol lives in the plan + notes/decisions.md) ──
+seed: 42
+run_tag: dev
+
+timeframes:
+  decision_minutes: 5
+  context_minutes: [30, 240]
+
+features:
+  groups: [base, time, ms, zz]      # togglable for pre-registered ablations
+
+labels:
+  atr_period: 14                    # ATR on the decision timeframe
+  tp_atr: 3.0                       # trend-runner geometry — won the training-side
+  sl_atr: 1.5                       # barrier sweep (see runs/lgbm_barriers_*)
+  horizon_bars: 48                  # 48 × 5m = 4h
+  side: both                        # independent long / short binary labels
+
+weights:
+  uniqueness: true                  # overlap-adjusted label uniqueness
+  synth_weight: 0.5                 # candidate; admitted only via protocol gates
+  recency_half_life_days: 0         # 0 = off
+
+cv:
+  scheme: purged_walk_forward
+  n_folds: 5
+  embargo_days: 1
+
+lgbm:
+  n_search: 20
+  early_stop_tail_days: 30          # embargoed tail of the train fold, never validation
+  base_params:
+    objective: binary
+    learning_rate: 0.04
+    num_leaves: 31
+    max_depth: 7
+    min_child_samples: 1000
+    feature_fraction: 0.8
+    bagging_fraction: 0.8
+    bagging_freq: 1
+    lambda_l2: 5.0
+    verbose: -1
+
+tcn:
+  seq_len: 64
+  hidden: 64
+  blocks: 5
+  dropout: 0.2
+  weight_decay: 0.01
+  lr: 0.001
+  batch_size: 1024
+  max_epochs: 14
+  patience: 4
+  windows_per_epoch: 150000   # per-epoch random window subsample (compute cap)
+  seeds: [1, 2, 3]            # final deep ensemble
+  cv_seeds: [1, 2]            # CV compute budget
+  folds: 3
+
+cost_profile: futures_proxy_stressed   # active instrument cost basis (D-009)
+
+decision:
+  min_ev_atr: 0.25                  # plateau interior on futures-basis OOF (D-010)
+  prob_floor: 0.40                  # loose safety; the EV gate is the real filter
+
+backtest:
+  spread_stress_mult: 1.25          # user-mandated higher-than-normal costs
+  slippage_stress_mult: 1.0
+  equity0: 10000.0
+  risk_per_trade: 0.005
+  leverage_cap: 20.0
+  max_trades_per_day: 6
+  daily_stop_R: -3.0
+  max_concurrent: 1
+
+robustness:
+  spread_stress_mult: 1.5
+  slippage_stress_mult: 2.0
+  cost_curve: [1.0, 1.25, 1.5, 1.75, 2.0]
+  threshold_perturb_pct: 20

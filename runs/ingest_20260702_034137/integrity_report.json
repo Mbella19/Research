@@ -1,0 +1,242 @@
+[
+  {
+    "name": "real_training",
+    "rows": 1906523,
+    "start": "2020-01-02 01:00:00",
+    "end": "2025-05-30 23:54:00",
+    "dup_ts": 0,
+    "non_monotonic": 0,
+    "ohlc_violations": 0,
+    "nonpositive_prices": 0,
+    "off_weekday_bars": 0,
+    "off_session_bars": 0,
+    "intraday_gaps_gt1m": 522,
+    "worst_gaps_sec": [
+      54480,
+      29280,
+      21360
+    ],
+    "trading_days": 1399,
+    "bars_per_day": {
+      "median": 1379.0,
+      "min": 432,
+      "max": 1380
+    },
+    "spread_pts": {
+      "mean": 15.56,
+      "p50": 17.0,
+      "p95": 19.0,
+      "max": 200.0
+    },
+    "zero_tickvol_bars": 51,
+    "clean": true
+  },
+  {
+    "name": "real_validation",
+    "rows": 205866,
+    "start": "2025-06-02 01:00:00",
+    "end": "2025-12-30 23:58:00",
+    "dup_ts": 0,
+    "non_monotonic": 0,
+    "ohlc_violations": 0,
+    "nonpositive_prices": 0,
+    "off_weekday_bars": 0,
+    "off_session_bars": 0,
+    "intraday_gaps_gt1m": 10,
+    "worst_gaps_sec": [
+      32040,
+      4560,
+      540
+    ],
+    "trading_days": 151,
+    "bars_per_day": {
+      "median": 1379.0,
+      "min": 528,
+      "max": 1379
+    },
+    "spread_pts": {
+      "mean": 12.94,
+      "p50": 13.0,
+      "p95": 15.0,
+      "max": 40.0
+    },
+    "zero_tickvol_bars": 0,
+    "clean": true
+  },
+  {
+    "name": "real_locked_oos",
+    "rows": 154539,
+    "start": "2026-01-02 01:00:00",
+    "end": "2026-06-09 23:58:00",
+    "dup_ts": 0,
+    "non_monotonic": 0,
+    "ohlc_violations": 0,
+    "nonpositive_prices": 0,
+    "off_weekday_bars": 0,
+    "off_session_bars": 0,
+    "intraday_gaps_gt1m": 8,
+    "worst_gaps_sec": [
+      720,
+      240,
+      180
+    ],
+    "trading_days": 113,
+    "bars_per_day": {
+      "median": 1379.0,
+      "min": 915,
+      "max": 1379
+    },
+    "spread_pts": {
+      "mean": 12.95,
+      "p50": 13.0,
+      "p95": 15.0,
+      "max": 15.0
+    },
+    "zero_tickvol_bars": 0,
+    "clean": true
+  },
+  {
+    "name": "synth_u1",
+    "rows": 2113095,
+    "start": "2030-01-02 01:00:00",
+    "end": "2035-12-31 23:58:00",
+    "dup_ts": 0,
+    "non_monotonic": 0,
+    "ohlc_violations": 0,
+    "nonpositive_prices": 0,
+    "off_weekday_bars": 0,
+    "off_session_bars": 0,
+    "intraday_gaps_gt1m": 383,
+    "worst_gaps_sec": [
+      960,
+      960,
+      960
+    ],
+    "trading_days": 1549,
+    "bars_per_day": {
+      "median": 1379.0,
+      "min": 467,
+      "max": 1379
+    },
+    "spread_pts": {
+      "mean": 15.7,
+      "p50": 15.0,
+      "p95": 19.0,
+      "max": 200.0
+    },
+    "zero_tickvol_bars": 0,
+    "clean": true
+  },
+  {
+    "name": "synth_u2",
+    "rows": 2121721,
+    "start": "2030-01-02 01:00:00",
+    "end": "2035-12-31 23:58:00",
+    "dup_ts": 0,
+    "non_monotonic": 0,
+    "ohlc_violations": 0,
+    "nonpositive_prices": 0,
+    "off_weekday_bars": 0,
+    "off_session_bars": 0,
+    "intraday_gaps_gt1m": 0,
+    "worst_gaps_sec": [],
+    "trading_days": 1551,
+    "bars_per_day": {
+      "median": 1379.0,
+      "min": 661,
+      "max": 1379
+    },
+    "spread_pts": {
+      "mean": 15.71,
+      "p50": 15.0,
+      "p95": 19.0,
+      "max": 200.0
+    },
+    "zero_tickvol_bars": 0,
+    "clean": true
+  },
+  {
+    "name": "synth_u3",
+    "rows": 2117901,
+    "start": "2030-01-02 01:00:00",
+    "end": "2035-12-31 23:58:00",
+    "dup_ts": 0,
+    "non_monotonic": 0,
+    "ohlc_violations": 0,
+    "nonpositive_prices": 0,
+    "off_weekday_bars": 0,
+    "off_session_bars": 0,
+    "intraday_gaps_gt1m": 0,
+    "worst_gaps_sec": [],
+    "trading_days": 1549,
+    "bars_per_day": {
+      "median": 1379.0,
+      "min": 619,
+      "max": 1379
+    },
+    "spread_pts": {
+      "mean": 15.7,
+      "p50": 15.0,
+      "p95": 19.0,
+      "max": 200.0
+    },
+    "zero_tickvol_bars": 0,
+    "clean": true
+  },
+  {
+    "name": "synth_u4",
+    "rows": 2118371,
+    "start": "2030-01-02 01:00:00",
+    "end": "2035-12-31 23:58:00",
+    "dup_ts": 0,
+    "non_monotonic": 0,
+    "ohlc_violations": 0,
+    "nonpositive_prices": 0,
+    "off_weekday_bars": 0,
+    "off_session_bars": 0,
+    "intraday_gaps_gt1m": 0,
+    "worst_gaps_sec": [],
+    "trading_days": 1550,
+    "bars_per_day": {
+      "median": 1379.0,
+      "min": 543,
+      "max": 1379
+    },
+    "spread_pts": {
+      "mean": 15.72,
+      "p50": 15.0,
+      "p95": 19.0,
+      "max": 200.0
+    },
+    "zero_tickvol_bars": 0,
+    "clean": true
+  },
+  {
+    "name": "synth_u5",
+    "rows": 2121942,
+    "start": "2030-01-02 01:00:00",
+    "end": "2035-12-31 23:58:00",
+    "dup_ts": 0,
+    "non_monotonic": 0,
+    "ohlc_violations": 0,
+    "nonpositive_prices": 0,
+    "off_weekday_bars": 0,
+    "off_session_bars": 0,
+    "intraday_gaps_gt1m": 0,
+    "worst_gaps_sec": [],
+    "trading_days": 1552,
+    "bars_per_day": {
+      "median": 1379.0,
+      "min": 478,
+      "max": 1379
+    },
+    "spread_pts": {
+      "mean": 15.71,
+      "p50": 15.0,
+      "p95": 19.0,
+      "max": 200.0
+    },
+    "zero_tickvol_bars": 0,
+    "clean": true
+  }
+]

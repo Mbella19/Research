@@ -1,0 +1,17 @@
+{
+  "n": 724,
+  "flat_sharpe": 0.768,
+  "meta_sharpe": 0.743,
+  "flat_worst_year": -6.17,
+  "meta_worst_year": -7.06,
+  "quintile_meanR": [
+    0.0783,
+    0.0267,
+    0.2151,
+    0.0565,
+    0.1433
+  ],
+  "killed_pct": 20.0,
+  "boosted_pct": 20.0,
+  "ADOPT": false
+}

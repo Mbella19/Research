@@ -1,0 +1,38 @@
+# Local environment
+.venv/
+.env
+.env.*
+
+# Python/build caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# OS/editor noise
+.DS_Store
+
+# Raw and derived market data
+data/
+NAS100 DATA/
+SYNTHETIC DATA/
+*.parquet
+
+# Heavy trained artifacts. Keep lightweight metadata and text reports.
+models/**
+!models/
+!models/**/
+!models/*.json
+!models/*.txt
+!models/**/*.json
+!models/**/*.txt
+*.pkl
+*.pt
+*.npz
+
+# Generated logs only; run reports, CSV summaries, JSON, and plots are kept.
+*.log

@@ -1,0 +1,120 @@
+{
+  "tag": "TRAIN_OOF",
+  "portfolio": {
+    "ann_ret_pct": 12.251079108025431,
+    "ann_vol_pct": 11.131450346113741,
+    "sharpe": 1.0937527080352791,
+    "max_dd_pct": -18.279906775932265,
+    "worst_year_pct": -7.3820396440224645,
+    "years_pos": 5,
+    "years_n": 6,
+    "months_pos_pct": 55.38461538461539,
+    "worst_month_pct": -4.077031072348114,
+    "yearly": {
+      "2020": 46.68,
+      "2021": 0.08,
+      "2022": -7.38,
+      "2023": 2.0,
+      "2024": 35.88,
+      "2025": 0.8
+    }
+  },
+  "s1": {
+    "ann_ret_pct": 4.389210059403981,
+    "ann_vol_pct": 7.7986059022216505,
+    "sharpe": 0.5895173433114088,
+    "max_dd_pct": -9.059792735182814,
+    "worst_year_pct": -4.127723845168463,
+    "years_pos": 2,
+    "years_n": 6,
+    "months_pos_pct": 32.30769230769231,
+    "worst_month_pct": -3.3174512305186643,
+    "yearly": {
+      "2020": 14.92,
+      "2021": -0.96,
+      "2022": -4.13,
+      "2023": -0.03,
+      "2024": 16.62,
+      "2025": -0.23
+    }
+  },
+  "s2": {
+    "ann_ret_pct": 7.545576025793221,
+    "ann_vol_pct": 7.780527755899275,
+    "sharpe": 0.9739237189490556,
+    "max_dd_pct": -13.468114536128006,
+    "worst_year_pct": -3.3888458227950724,
+    "years_pos": 5,
+    "years_n": 6,
+    "months_pos_pct": 56.92307692307692,
+    "worst_month_pct": -3.3509718976156067,
+    "yearly": {
+      "2020": 27.61,
+      "2021": 1.03,
+      "2022": -3.39,
+      "2023": 2.02,
+      "2024": 16.64,
+      "2025": 1.04
+    }
+  },
+  "bh": {
+    "ann_ret_pct": 17.083465576171875,
+    "ann_vol_pct": 25.813883489452277,
+    "sharpe": 0.7401833390490526,
+    "max_dd_pct": -35.525997161865234,
+    "worst_year_pct": -32.92927169799805,
+    "years_pos": 5,
+    "years_n": 6,
+    "months_pos_pct": 63.07692307692307,
+    "worst_month_pct": -13.556205749511719,
+    "yearly": {
+      "2020": 45.17,
+      "2021": 26.71,
+      "2022": -32.93,
+      "2023": 53.54,
+      "2024": 24.69,
+      "2025": 1.62
+    }
+  },
+  "sleeve_corr": 0.021,
+  "total_return_pct": 89.95,
+  "bh_total_return_pct": 140.03,
+  "s1_trades": 643,
+  "s2_trades": 878,
+  "s2_exposure_pct": 65.8,
+  "criteria": {
+    "sharpe": {
+      "pass": false,
+      "value": 1.09
+    },
+    "max_dd<=12": {
+      "pass": false,
+      "value": -18.3
+    },
+    "worst_year>=-5": {
+      "pass": false,
+      "value": -7.4
+    },
+    "years_pos>=5of6": {
+      "pass": true,
+      "value": "5/6"
+    },
+    "months_pos>=65": {
+      "pass": false,
+      "value": 55.0
+    },
+    "worst_month>-6": {
+      "pass": true,
+      "value": -4.1
+    },
+    "beats_bh_return": {
+      "pass": false,
+      "value": "+89.9% vs +140.0%"
+    },
+    "dd<=half_bh": {
+      "pass": false,
+      "value": "-18.3% vs B&H -35.5%"
+    }
+  },
+  "criteria_passed": "2/8"
+}

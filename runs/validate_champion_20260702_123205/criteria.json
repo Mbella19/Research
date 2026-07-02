@@ -1,0 +1,20 @@
+{
+  "boot_lb_expectancy_pos": false,
+  "psr_ge_0.95": false,
+  "dsr_ge_0.95": false,
+  "pf_ge_1.2": false,
+  "sharpe_ge_1": false,
+  "dd_le_15": true,
+  "trades_ge_200": false,
+  "months_pos_ge_5of7": false,
+  "max_month_share_le_40": false,
+  "max_day_share_le_15": false,
+  "profitable_wo_top5": false,
+  "ret_ge_bh": false,
+  "dd_le_half_bh": false,
+  "sharpe_gt_bh": false,
+  "calmar_gt_bh": false,
+  "_psr": 0.6635,
+  "_dsr": 0.1858,
+  "_n_trials": 6
+}
