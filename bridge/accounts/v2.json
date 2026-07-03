@@ -1,0 +1,14 @@
+{
+  "policy": "v2",
+  "terminal_path": "C:\\Program Files\\MetaTrader 5 copy1\\terminal64.exe",
+  "expected_dir": "C:\\Program Files\\MetaTrader 5 copy1",
+  "login_guard": 62130224,
+  "symbol": "NAS100",
+  "magics": [622001, 622002],
+  "max_lots": 15.0,
+  "deviation_points": 50,
+  "data_dir": "C:\\daytrader\\62130224",
+  "poll_ms": 750,
+  "bars_n": 3000,
+  "dry_run": false
+}

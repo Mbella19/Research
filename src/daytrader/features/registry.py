@@ -27,8 +27,14 @@ BAR_COLS = ["ts", "avail_ts", "day", "open", "high", "low", "close",
 WARMUP_5M_BARS = 1100  # covers ema200/atr96 warmup + 21 completed 4h bars
 
 
-def build_features_from_1m(df1m: pd.DataFrame, groups: list[str]) -> pd.DataFrame:
-    """1m bars → decision-TF bar frame + feature columns (float32)."""
+def build_features_from_1m(df1m: pd.DataFrame, groups: list[str],
+                           daily_ctx: pd.DataFrame | None = None) -> pd.DataFrame:
+    """1m bars → decision-TF bar frame + feature columns (float32).
+
+    `daily_ctx`: optional full-history per-day aggregates (daily_context.
+    day_aggs) so the `daily` group stays exact when df1m is only a recent
+    window (live hot path). Default None = identical to the training build.
+    """
     ex = experiment()
     dec_min = ex["timeframes"]["decision_minutes"]
     ctx_min = ex["timeframes"]["context_minutes"]
@@ -47,7 +53,7 @@ def build_features_from_1m(df1m: pd.DataFrame, groups: list[str]) -> pd.DataFram
     if "zz" in groups:
         parts.append(zigzag.compute(df5, atr5))
     if "daily" in groups:
-        parts.append(daily_context.daily(df5))
+        parts.append(daily_context.daily(df5, ctx=daily_ctx))
     if "cal" in groups:
         parts.append(daily_context.cal(df5))
     if "tape" in groups:

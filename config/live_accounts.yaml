@@ -1,0 +1,19 @@
+# Mac-side view of the live bridge accounts (D-032).
+# data_dir_native must mirror the executor config's data_dir (drive_c path).
+wineprefix: "~/Library/Application Support/net.metaquotes.wine.metatrader5"
+wine64: "/Applications/MetaTrader 5.app/Contents/SharedSupport/wine/bin/wine64"
+wine_python: "C:\\Python312\\python.exe"
+accounts:
+  v2:
+    login: 62130224
+    terminal: "MetaTrader 5 copy1"
+    data_dir_native: "~/Library/Application Support/net.metaquotes.wine.metatrader5/drive_c/daytrader/62130224"
+    executor_config_win: "C:\\daytrader\\accounts\\v2.json"
+  v3:
+    login: 62130225
+    terminal: "MetaTrader 5 copy2"
+    data_dir_native: "~/Library/Application Support/net.metaquotes.wine.metatrader5/drive_c/daytrader/62130225"
+    executor_config_win: "C:\\daytrader\\accounts\\v3.json"
+seed:
+  extra_csvs: ["~/Downloads/new data.csv"]
+  backfill_bars: 60000

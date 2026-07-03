@@ -34,12 +34,32 @@ def _expanding_pctile(s: pd.Series, min_periods: int = 126) -> pd.Series:
     return pd.Series(out, index=s.index)
 
 
-def daily(df5: pd.DataFrame) -> pd.DataFrame:
+def day_aggs(df5: pd.DataFrame) -> pd.DataFrame:
+    """Per-day aggregates the `daily` group is derived from. Public so live
+    deployments can build the SAME table from full history and inject it
+    (`daily(df5, ctx=...)`) when df5 is only a recent window."""
     g = df5.groupby("day")
-    first_open = g["open"].first()
-    last_close = g["close"].last()
-    hi, lo = g["high"].max(), g["low"].min()
-    absmove = g["close"].apply(lambda c: float(np.abs(np.diff(c)).sum()))
+    return pd.DataFrame({
+        "first_open": g["open"].first(),
+        "last_close": g["close"].last(),
+        "hi": g["high"].max(),
+        "lo": g["low"].min(),
+        "absmove": g["close"].apply(lambda c: float(np.abs(np.diff(c)).sum())),
+    })
+
+
+def daily(df5: pd.DataFrame, ctx: pd.DataFrame | None = None) -> pd.DataFrame:
+    a = day_aggs(df5) if ctx is None else ctx
+    if ctx is not None:
+        missing = df5["day"].unique()
+        missing = missing[~pd.Index(missing).isin(a.index)]
+        if len(missing):
+            raise ValueError(f"daily ctx missing {len(missing)} day(s), "
+                             f"first: {missing[0]}")
+    first_open = a["first_open"]
+    last_close = a["last_close"]
+    hi, lo = a["hi"], a["lo"]
+    absmove = a["absmove"]
 
     tr = np.maximum(hi - lo, np.maximum((hi - last_close.shift(1)).abs(),
                                         (lo - last_close.shift(1)).abs()))

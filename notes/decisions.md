@@ -495,3 +495,116 @@ tertiary pattern (v2's S1 stronger in the current regime). 17 days = small
 sample; treated as the first block of the paper-trade record, not a verdict.
 Both systems escaped the late selloff with ~1/3 of B&H's loss.
 runs/forward_cold_20260702_224828.
+
+## D-032 · 2026-07-03 · LIVE PAPER-TRADE BRIDGE — pre-registration (before any live code trades)
+Two frozen policies run UNCHANGED on two Pepperstone 50k demo accounts via a
+file bridge (Mac brain = this repo's exact inference path; Wine-side thin
+executor using the MetaTrader5 API, mirroring the machine's proven
+tv-mt5-copier pattern). Bindings: v2 → copy1 login 62130224 (magics S1
+622001 / S2 622002); v3 → copy2 login 62130225 (magics 623001 / 623002).
+POLICY DICTS (immutable for the whole paper trade):
+  v2 decision = {s1_artifact: lgbm_final, min_ev_atr: 0.20, drift_mu_daily:
+  0.000636, gate_cost_profile: cfd_stressed, allowed_sides: both,
+  prob_floor: 0.40} (assembled: FINAL_FROZEN_V2.json has no decision block;
+  identical to FWD-01's override) + FINAL_FROZEN_V2 sleeves (s2 usC|sma50|
+  novc|NO stop|NO derisk, w2 0.87, risk1 0.005), groups [base,time,ms,zz].
+  v3 = FINAL_FROZEN_V3.json decision+sleeves+labels verbatim, 7 groups.
+LIVE DEFINITIONS (chosen now, not discovered later):
+  S1 entry = market order on first-1m-bar-at/after-avail_ts detection
+  (bar-driven); SL/TP re-anchored to ACTUAL fill ±1.5/3.0×atr_abs (5m
+  Wilder-14, decision bar), rounded to 0.1; horizon = 240 RECEIVED 1m bars;
+  guards in engine order incl. floor-skip-not-counted; risk$ = 0.005 ×
+  broker equity at decision; day_R from closed net PnL ÷ entry risk$.
+  S2 entry first bar ≥23:00 / exit first bar ≥16:30 next trading day;
+  gate/expo/dailyATR from full daily history, captured at entry; v3 broker
+  SL = fill − 5×dailyATR; v2 NO stop (backtest parity). S2 lots =
+  floor(expo·w2·equity/close/0.01)·0.01. Compounding = single broker equity
+  per account (differs from book.py daily-rebase two-sleeve ideal — both
+  sleeves share one equity; accepted and stated).
+ACCEPTED MICRO-DIVERGENCES: real demo spread/slip vs stressed profiles (the
+point of the test); 0.1 price rounding; 1–3s SL-set latency; same-bar SL+TP
+(backtest pessimistic→SL, live = tick order); REAL swap on S2 nights (model
+0.0; robustness priced 2.5bp/night = alert level); commission 0 on CFD.
+MISSED-ENTRY RULE: if a decision is older than avail_ts+90s (downtime,
+stale feed), skip and log MISSED — never chase. Freshness: bars >90s stale
+in-session ⇒ no new entries (exits still fire); >10min stale after 21:00
+with open S1 ⇒ EARLY_FLAT market close.
+HALT RULES (armed from day one): per-sleeve forward-divergence thresholds
+(oos.run_forward: S1 expectancy LB95<0 with n≥20; S2 bootstrap LB<−5e-4
+with n≥20) checked weekly via live-referee; operational halts = 3
+consecutive order rejections, 30-min bar gap during session, account equity
+−8% from start, orphan position detected. HALT file ⇒ flatten + stop.
+PARITY GATE before go-live: replay harness (SimBroker = engine fill model)
+must reproduce batch engine/sleeve2 trades on validation-tail 90d + the
+FWD-01 cold window for BOTH policies (identical entry ts/side/exit/reason);
+suffix-feature path must match full-history rows (side exact, |ΔEV|<1e-9)
+or the escalation ladder applies. Weekly retrospective referee re-derives
+the week's decisions from full history and asserts side-equality.
+The paper-trade pick rule (FWD-01) continues: ≥2–3 months, higher forward
+Sharpe wins unless halt-flagged; ties → v3 (risk architecture).
+
+## D-032a · 2026-07-03 · feature hot path — window REFUTED, full rebuild ADOPTED
+Pre-registered escalation ladder executed with measurement. Pinned-120-day
+window + injected daily ctx: v2 groups showed 14/424 side flips on the last
+120 days (max |ΔEV| 0.155). Diagnosis: 4h market-structure zones are
+path-dependent WITHOUT BOUND (active zones can predate any window start) —
+ms_dist/width/age 4h columns off by up to 20 ATR on 0.5–5.4% of rows; no
+window length fixes a structurally unbounded dependence (zigzag converges;
+ms does not). The same measurement made the ladder's end state cheap: FULL
+6.5y builds take ~12s (v2) / ~18s (v3) on this machine. ADOPTED: live
+rebuilds features from FULL history every decision — bit-identical to the
+training/backtest path by construction (same build_features_from_1m, same
+frame), inside the 90s budget. daily_ctx injection stays (tested, additive)
+as diagnostics/future fallback only.
+
+## D-032b · 2026-07-03 · PARITY GATE RESULTS (replay harness, 90d + cold window)
+Gate = the real LiveLoop driven bar-by-bar through SimBus (engine fill
+model) vs run_backtest / sleeve2_run, both policies. RESULT: 4/4 PASS.
+  S2 (both policies): EXACT — 58/58 holds, |Δprice| ≤ 4e-12, expo ≤ 1e-16,
+  stop-fire sets equal, v2 confirmed stopless.
+  S1 Phase A (longest samebar-free stretch, equity-aligned): EXACT —
+  v2 49/49 trades over 48d (|Δentry| 4e-12, |Δlots| 4e-16); v3 20/20 over
+  40d (|Δentry| = 0).
+  S1 Phase B (full window): counts 128/128 (v2), 64/65 (v3); all deviations
+  postdate the first samebar event; ΣR drift 5.97R/6 events (v2), 2.0R/3
+  (v3) — within the 4.5R-per-event barrier-span bound.
+SAMEBAR CLASS (measured 4.7% of trades both policies): the engine books an
+intrabar stop at bar e AND re-enters at e's open — unknowable at bar open.
+Live retries within the 90s window and captures the entry ≤1 bar late; the
+fill drift cascades (equity→lots ≤0.11; shifted exits→concurrency windows).
+Replay's 60s-late refill is the WORST case — real live retries within
+seconds of the stop firing, so live fidelity ∈ [replay, engine]. Weekly
+live-referee re-derives all decisions from full history (side-equality).
+
+## D-032c · 2026-07-03 · WINE SMOKE — both terminals attached; broker facts
+Executor attach battery PASSED on copy1 (62130224) and copy2 (62130225):
+portable signature, DEMO, hedging, NAS100 point 0.1 / digits 1 /
+stops_level 0, Pepperstone demo, 50k USD, leverage 1:30, spread p50 10pts
+(= the stored data's convention). ADAPTATION: broker volume_step/min = 0.1
+(backtests assumed 0.01) — live sizing floors to the broker's granularity;
+R-neutral, ≤2% size rounding noise, applied via runner (engine formula
+unchanged). AutoTrading button OFF at smoke time → go-live checklist item.
+bars.csv round-trips load_mt5_csv bit-clean on both accounts.
+
+## D-032d · 2026-07-03 · LIVE INCIDENT #1 — half-dead MT5 session; executor build b
+At 17:40 srv the Pepperstone demo server dropped both terminals (holiday-
+period interruption). The terminals reconnected on their own, but both
+executors' MetaTrader5 IPC sessions went HALF-DEAD: symbol_info_tick /
+account_info / symbol_info returned None forever (no exception) while
+history_deals_get kept "working". Consequences found and fixed:
+1) status.json froze (35 min stale) — the brain correctly treated the feed
+   as stale (no entries, exits still armed), so this was safe-but-blind;
+2) write_deals turned None into () and REWROTE deals.csv header-only every
+   5s — would have erased the brain's proof-of-close during an outage with
+   a position open (no fills existed yet; nothing was lost).
+FIX (executor build 2026-07-03b, deployed + verified live):
+- write_status returns written|not; 40 consecutive silent-None iterations
+  (~30s) with ≥60s between attempts → mt5.shutdown() + full re-attach
+  battery (attach-only, same guards). Recovery verified end-to-end.
+- write_deals: deals=None → skip write (never clobber the last good file);
+  empty tuple still writes (a genuinely deal-less account stays truthful).
+Post-fix state: both executors fresh (status age ≤1s), trade_allowed=True
+(user enabled AutoTrading on both terminals — armed 17:5x srv), feed
+resumed 18:1x, both brains decided the 18:15 bin (no_trade, gate). The
+17:40–18:10 outage bins were never formed from received bars → skipped
+under the pre-registered MISSED rule (older than avail+90s, never chased).

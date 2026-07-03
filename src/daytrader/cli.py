@@ -165,6 +165,27 @@ def cmd_direction(args: argparse.Namespace) -> None:
         direction.validation_look(args.gate, args.risk)
 
 
+def cmd_live_loop(args: argparse.Namespace) -> None:
+    from .live.runner import run_live
+
+    run_live(args.policy, dry_run=args.dry_run, once=args.once)
+
+
+def cmd_live_referee(args: argparse.Namespace) -> None:
+    from .live.runner import run_referee
+
+    run_referee(args.policy)
+
+
+def cmd_live_replay(args: argparse.Namespace) -> None:
+    from .live.replay import run_replay
+
+    sleeves = tuple(args.sleeves.split(","))
+    r = run_replay(args.policy, args.start, args.end, sleeves=sleeves,
+                   out_dir=args.out)
+    log.info(f"replay artifacts → {r['out']}")
+
+
 def cmd_portfolio(args: argparse.Namespace) -> None:
     if args.stage == "grid":
         from .portfolio import grid
@@ -292,6 +313,26 @@ def main() -> None:
     p_dir.add_argument("--gate", type=float, default=0.15)
     p_dir.add_argument("--risk", type=float, default=None)
     p_dir.set_defaults(fn=cmd_direction)
+
+    p_ll = sub.add_parser("live-loop", help="live paper-trading brain (D-032)")
+    p_ll.add_argument("--policy", required=True, choices=["v2", "v3"])
+    p_ll.add_argument("--dry-run", action="store_true",
+                      help="full pipeline; orders logged, never written")
+    p_ll.add_argument("--once", action="store_true")
+    p_ll.set_defaults(fn=cmd_live_loop)
+
+    p_lr = sub.add_parser("live-referee",
+                          help="retrospective side-equality + trade summary")
+    p_lr.add_argument("--policy", required=True, choices=["v2", "v3"])
+    p_lr.set_defaults(fn=cmd_live_referee)
+
+    p_lp = sub.add_parser("live-replay", help="SimBus replay of the live loop")
+    p_lp.add_argument("--policy", required=True, choices=["v2", "v3"])
+    p_lp.add_argument("--start", required=True)
+    p_lp.add_argument("--end", default=None)
+    p_lp.add_argument("--sleeves", default="s1,s2")
+    p_lp.add_argument("--out", default=None)
+    p_lp.set_defaults(fn=cmd_live_replay)
 
     p_pf = sub.add_parser("portfolio", help="v2 two-sleeve portfolio (D-021)")
     p_pf.add_argument("--stage", required=True,

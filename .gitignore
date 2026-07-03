@@ -36,3 +36,8 @@ models/**
 
 # Generated logs only; run reports, CSV summaries, JSON, and plots are kept.
 *.log
+
+# Live runtime process state
+*.pid
+*.out
+runs/live/**/state.json

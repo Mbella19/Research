@@ -84,3 +84,13 @@ meta-label, TCN, blend). S2 + catastrophe stop (5×ATR) + one-sided vol
 de-risk. Frozen: `models/FINAL_FROZEN_V3.json`. Report: `notes/FINAL_REPORT.md`.
 `daytrader train-lgbm --stage search|final|evreg|arena` · `portfolio --stage
 oof|validate|robustness|freeze-v3|fullhistory`.
+
+## Live paper trading (v3.1, D-032)
+
+Both frozen policies trade two Pepperstone 50k demo accounts automatically:
+the exact validated pipeline decides on the Mac; thin Wine-side executors
+(same mechanism as the resident tv-mt5-copier) export bars and execute
+orders per terminal. Parity to the backtest engine is test-enforced
+(`pytest -m slow`: replay==engine, D-032b). Operate with
+`scripts/live_up.sh` / `live_status.sh` / `live_down.sh`; weekly
+`daytrader live-referee --policy v2|v3`. Full guide: `notes/LIVE_GUIDE.md`.
