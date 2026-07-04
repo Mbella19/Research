@@ -2,8 +2,9 @@ name: Export code as TXT
 
 on:
   push:
-    branches:
-      - chatgpt-code-txt-export
+    branches: [chatgpt-code-txt-export]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -21,7 +22,6 @@ jobs:
         run: |
           python - <<'PY'
           from __future__ import annotations
-
           import shutil
           import zipfile
           from pathlib import Path
@@ -29,44 +29,29 @@ jobs:
           root = Path.cwd()
           export_root = root / "Research_code_as_txt"
           zip_path = root / "Research_code_as_txt.zip"
-
           if export_root.exists():
               shutil.rmtree(export_root)
           if zip_path.exists():
               zip_path.unlink()
-
           export_root.mkdir(parents=True)
 
-          included_directories = {
-              "src",
-              "tests",
-              "scripts",
-              "bridge",
-              "config",
-          }
+          included_directories = {"src", "tests", "scripts", "bridge", "config"}
           included_root_files = {
-              ".gitignore",
-              ".gitattributes",
-              "Makefile",
-              "Dockerfile",
-              "README.md",
-              "pyproject.toml",
-              "requirements.txt",
-              "Chart pattern.txt",
-              "MS.txt",
+              ".gitignore", ".gitattributes", "Makefile", "Dockerfile",
+              "README.md", "pyproject.toml", "requirements.txt",
+              "Chart pattern.txt", "MS.txt",
           }
           code_suffixes = {
-              ".py", ".pyi", ".sh", ".bash", ".zsh", ".fish",
-              ".ps1", ".bat", ".cmd", ".js", ".jsx", ".ts", ".tsx",
-              ".java", ".c", ".h", ".cpp", ".cc", ".cxx", ".hpp",
-              ".cs", ".go", ".rs", ".rb", ".php", ".swift", ".kt",
-              ".kts", ".scala", ".r", ".sql", ".html", ".htm", ".css",
-              ".scss", ".sass", ".less", ".vue", ".svelte", ".pine",
-              ".pinescript", ".toml", ".yaml", ".yml", ".json", ".ini",
-              ".cfg", ".conf", ".md", ".txt",
+              ".py", ".pyi", ".sh", ".bash", ".zsh", ".fish", ".ps1",
+              ".bat", ".cmd", ".js", ".jsx", ".ts", ".tsx", ".java",
+              ".c", ".h", ".cpp", ".cc", ".cxx", ".hpp", ".cs", ".go",
+              ".rs", ".rb", ".php", ".swift", ".kt", ".kts", ".scala",
+              ".r", ".sql", ".html", ".htm", ".css", ".scss", ".sass",
+              ".less", ".vue", ".svelte", ".pine", ".pinescript", ".toml",
+              ".yaml", ".yml", ".json", ".ini", ".cfg", ".conf", ".md", ".txt",
           }
 
-          selected: list[Path] = []
+          selected = []
           for path in root.rglob("*"):
               if not path.is_file():
                   continue
@@ -75,62 +60,44 @@ jobs:
                   continue
               if rel.as_posix() == ".github/workflows/chatgpt-export-code-txt.yml":
                   continue
-
-              is_selected_dir = rel.parts[0] in included_directories
-              is_selected_root = len(rel.parts) == 1 and path.name in included_root_files
-              if not (is_selected_dir or is_selected_root):
+              in_dir = rel.parts[0] in included_directories
+              at_root = len(rel.parts) == 1 and path.name in included_root_files
+              if not (in_dir or at_root):
                   continue
               if path.suffix.lower() not in code_suffixes and path.name not in included_root_files:
                   continue
               selected.append(path)
 
-          manifest_lines = [
+          manifest = [
               "Research repository code converted to TXT",
               "Original folder structure is preserved.",
               "",
           ]
-          converted = 0
-          skipped = 0
-
+          converted = skipped = 0
           for source in sorted(selected):
               rel = source.relative_to(root)
               raw = source.read_bytes()
               if b"\x00" in raw:
-                  manifest_lines.append(f"SKIPPED BINARY: {rel.as_posix()}")
+                  manifest.append(f"SKIPPED BINARY: {rel.as_posix()}")
                   skipped += 1
                   continue
               try:
                   text = raw.decode("utf-8-sig")
               except UnicodeDecodeError:
                   text = raw.decode("cp1252", errors="replace")
-
-              if source.suffix.lower() == ".txt":
-                  output_rel = rel
-              else:
-                  output_rel = rel.with_name(rel.name + ".txt")
-
+              output_rel = rel if source.suffix.lower() == ".txt" else rel.with_name(rel.name + ".txt")
               destination = export_root / output_rel
               destination.parent.mkdir(parents=True, exist_ok=True)
               destination.write_text(text, encoding="utf-8", newline="")
-              manifest_lines.append(
-                  f"{rel.as_posix()} -> {output_rel.as_posix()}"
-              )
+              manifest.append(f"{rel.as_posix()} -> {output_rel.as_posix()}")
               converted += 1
 
-          manifest_lines.extend([
-              "",
-              f"Converted files: {converted}",
-              f"Skipped binary files: {skipped}",
-          ])
-          (export_root / "MANIFEST.txt").write_text(
-              "\n".join(manifest_lines) + "\n", encoding="utf-8"
-          )
-
+          manifest += ["", f"Converted files: {converted}", f"Skipped binary files: {skipped}"]
+          (export_root / "MANIFEST.txt").write_text("\n".join(manifest) + "\n", encoding="utf-8")
           with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
               for path in sorted(export_root.rglob("*")):
                   if path.is_file():
                       zf.write(path, path.relative_to(root))
-
           print(f"Created {zip_path.name} with {converted} converted files.")
           PY
 
